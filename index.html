@@ -1,1945 +1,772 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cozy Brew — 3D Virtual Study Cafe</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Inter', sans-serif;
-            background-color: #120d0a;
-            color: #fdf8f5;
-            user-select: none;
-        }
-        .serif-title {
-            font-family: 'Playfair Display', serif;
-        }
-        #canvas-container {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-        .glass-panel {
-            background: rgba(24, 18, 15, 0.78);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border: 1px solid rgba(251, 191, 36, 0.18);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-        }
-        .custom-scroll::-webkit-scrollbar {
-            width: 5px;
-        }
-        .custom-scroll::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.04);
-            border-radius: 8px;
-        }
-        .custom-scroll::-webkit-scrollbar-thumb {
-            background: rgba(251, 191, 36, 0.35);
-            border-radius: 8px;
-        }
-        .avatar-label {
-            position: absolute;
-            transform: translate(-50%, -100%);
-            pointer-events: none;
-            transition: opacity 0.2s ease;
-            z-index: 10;
-        }
-        input[type="range"] {
-            accent-color: #f59e0b;
-        }
-        @keyframes pulse-slow {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.55; }
-        }
-        .animate-pulse-slow {
-            animation: pulse-slow 2.6s infinite;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cozyhaven – 3D Virtual Study Cafe (PeerJS Live)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #0f0c0a;
+      color: #f5ebe6;
+      user-select: none;
+    }
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+    .glass-panel {
+      background: rgba(24, 18, 15, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 215, 180, 0.14);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+    .zone-btn.active {
+      background: linear-gradient(135deg, #d97706, #b45309);
+      color: #fff;
+      border-color: #fbbf24;
+      box-shadow: 0 0 15px rgba(217, 119, 6, 0.45);
+    }
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+    }
+  </style>
 </head>
-<body class="relative">
+<body>
 
-    <!-- 3D Canvas Container -->
-    <div id="canvas-container"></div>
+  <!-- 3D Scene Container -->
+  <div id="canvas-container"></div>
 
-    <!-- 3D Floating HTML Labels Container -->
-    <div id="labels-container" class="absolute inset-0 pointer-events-none z-10 overflow-hidden"></div>
-
-    <!-- Interactive Object Toast Notification -->
-    <div id="interaction-toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-2">
-        <div class="glass-panel px-4 py-2 rounded-full text-xs font-medium text-amber-200 flex items-center gap-2 shadow-lg">
-            <span id="toast-icon">☕</span>
-            <span id="toast-text">Refilled hot espresso!</span>
-        </div>
+  <!-- Top Bar: Brand & Room Connection -->
+  <div class="fixed top-4 left-4 right-4 z-10 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+    
+    <!-- Brand & Online Count -->
+    <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto">
+      <div class="w-3 h-3 rounded-full bg-amber-400 animate-pulse"></div>
+      <div>
+        <h1 class="font-bold text-sm sm:text-base tracking-tight text-amber-100">Cozyhaven 3D Study Cafe</h1>
+        <p id="connection-status" class="text-xs text-amber-300/80">Offline • Enter a Room Code to join friends</p>
+      </div>
     </div>
 
-    <!-- Top Navigation Bar -->
-    <header class="fixed top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-        <!-- Brand & Room Selector -->
-        <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto">
-            <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-lg shadow-inner">
-                ☕
-            </div>
-            <div>
-                <div class="flex items-center gap-2">
-                    <h1 class="serif-title text-base sm:text-lg font-semibold text-amber-100 tracking-wide">Cozyhaven Cafe</h1>
-                    <span id="connection-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> Live
-                    </span>
-                </div>
-                <div class="flex items-center gap-2 text-xs text-stone-400">
-                    <span>Room: <strong id="current-room-display" class="text-amber-300 font-mono">COZY-MAIN</strong></span>
-                    <button id="change-room-btn" class="text-[11px] text-amber-400 hover:text-amber-200 underline ml-1">Switch Room</button>
-                    <button id="copy-room-btn" class="text-[11px] bg-stone-800 hover:bg-stone-700 text-stone-200 px-1.5 py-0.5 rounded border border-stone-700 transition">Copy Code</button>
-                </div>
-            </div>
-        </div>
+    <!-- PeerJS Room Join Box -->
+    <div class="glass-panel p-2 rounded-2xl flex flex-wrap items-center gap-2 pointer-events-auto">
+      <input id="username-input" type="text" placeholder="Your Name" maxlength="14"
+        class="bg-black/40 border border-amber-500/30 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-amber-50 placeholder-amber-200/40 focus:outline-none focus:border-amber-400 w-28 sm:w-32">
+      
+      <input id="room-input" type="text" placeholder="Room Code (e.g. adda123)" maxlength="20"
+        class="bg-black/40 border border-amber-500/30 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-amber-50 placeholder-amber-200/40 focus:outline-none focus:border-amber-400 w-36 sm:w-44">
+      
+      <button id="join-btn" onclick="joinCafeRoom()"
+        class="bg-amber-600 hover:bg-amber-500 active:scale-95 transition px-4 py-1.5 rounded-xl text-xs sm:text-sm font-semibold text-white shadow-lg">
+        Join Room
+      </button>
+    </div>
+  </div>
 
-        <!-- Study Zone Camera Switcher -->
-        <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1 pointer-events-auto overflow-x-auto max-w-full">
-            <button data-zone="overview" class="zone-btn px-3 py-1.5 rounded-xl text-xs font-medium transition bg-amber-500 text-stone-950 font-semibold whitespace-nowrap">
-                🏠 Overview
-            </button>
-            <button data-zone="window" class="zone-btn px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-white hover:bg-white/10 transition whitespace-nowrap">
-                🌧️ Window Booth
-            </button>
-            <button data-zone="library" class="zone-btn px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-white hover:bg-white/10 transition whitespace-nowrap">
-                📚 Quiet Library
-            </button>
-            <button data-zone="group" class="zone-btn px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-white hover:bg-white/10 transition whitespace-nowrap">
-                💻 Group Table
-            </button>
-            <button data-zone="lounge" class="zone-btn px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-white hover:bg-white/10 transition whitespace-nowrap">
-                🛋️ Cozy Lounge
-            </button>
-        </div>
-
-        <!-- User Profile Quick Status -->
-        <div class="glass-panel px-3.5 py-2 rounded-2xl flex items-center gap-2.5 pointer-events-auto">
-            <div id="my-avatar-dot" class="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-stone-950 font-bold text-sm shadow">
-                U
-            </div>
-            <div class="hidden sm:block text-xs">
-                <div id="my-name-display" class="font-semibold text-amber-100">Scholar</div>
-                <div id="my-status-display" class="text-[11px] text-amber-300/80">Focusing • Window Booth</div>
-            </div>
-            <button id="edit-profile-btn" class="p-1.5 rounded-xl bg-white/5 hover:bg-white/15 text-stone-300 hover:text-white text-xs transition" title="Edit Profile & Task">
-                ✏️
-            </button>
-        </div>
-    </header>
-
-    <!-- Left Sidebar: Shared Pomodoro Timer & Sound Mixer -->
-    <aside class="fixed left-3 top-20 bottom-16 z-20 w-72 sm:w-80 flex flex-col gap-3 pointer-events-none">
-        
-        <!-- Shared Study Timer Card -->
-        <div class="glass-panel rounded-2xl p-4 pointer-events-auto transition-all">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs uppercase tracking-wider font-semibold text-amber-300/90 flex items-center gap-1.5">
-                    ⏱️ Shared Room Timer
-                </span>
-                <span id="timer-sync-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30">
-                    Focus Session
-                </span>
-            </div>
-
-            <!-- Mode Selector Pills -->
-            <div class="grid grid-cols-3 gap-1 bg-black/30 p-1 rounded-xl mb-3 text-xs">
-                <button data-mode="focus" data-min="25" class="timer-mode-btn py-1 rounded-lg bg-amber-500 text-stone-950 font-semibold transition">Focus 25m</button>
-                <button data-mode="short" data-min="5" class="timer-mode-btn py-1 rounded-lg text-stone-300 hover:text-white transition">Short 5m</button>
-                <button data-mode="long" data-min="15" class="timer-mode-btn py-1 rounded-lg text-stone-300 hover:text-white transition">Long 15m</button>
-            </div>
-
-            <!-- Big Timer Readout -->
-            <div class="text-center my-2 py-2 rounded-xl bg-black/25 border border-white/5">
-                <div id="timer-display" class="text-4xl sm:text-5xl font-bold font-mono tracking-tight text-amber-100">
-                    25:00
-                </div>
-                <div id="timer-subtext" class="text-[11px] text-stone-400 mt-1">
-                    Synced with everyone in room
-                </div>
-            </div>
-
-            <!-- Controls -->
-            <div class="flex items-center gap-2 mt-3">
-                <button id="timer-start-btn" class="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs shadow transition flex items-center justify-center gap-1.5">
-                    <span>▶</span> <span id="timer-btn-label">Start Focus</span>
-                </button>
-                <button id="timer-reset-btn" class="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 text-xs transition" title="Reset Timer">
-                    ↺
-                </button>
-                <button id="custom-min-btn" class="py-2 px-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 text-xs transition" title="Custom Minutes">
-                    ⚙️
-                </button>
-            </div>
-
-            <!-- Custom Minutes Drawer (Hidden by default) -->
-            <div id="custom-timer-drawer" class="hidden mt-3 pt-2 border-t border-white/10 flex items-center gap-2">
-                <input id="custom-min-input" type="number" min="1" max="180" value="45" class="w-full bg-black/40 border border-white/15 rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-amber-400" placeholder="Minutes (1-180)">
-                <button id="apply-custom-min" class="px-3 py-1 rounded-lg bg-amber-500/80 hover:bg-amber-500 text-stone-950 font-semibold text-xs whitespace-nowrap">Set</button>
-            </div>
-        </div>
-
-        <!-- Ambient Web-Audio Synthesizer Mixer -->
-        <div class="glass-panel rounded-2xl p-4 pointer-events-auto flex-1 overflow-y-auto custom-scroll flex flex-col justify-between">
-            <div>
-                <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs uppercase tracking-wider font-semibold text-amber-300/90 flex items-center gap-1.5">
-                        🎧 Ambient Soundscape
-                    </span>
-                    <button id="master-audio-btn" class="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-400/30 transition">
-                        🔇 Muted (Click to Play)
-                    </button>
-                </div>
-
-                <div class="space-y-3 text-xs">
-                    <!-- Rain on Window -->
-                    <div>
-                        <div class="flex justify-between text-stone-300 mb-1">
-                            <span>🌧️ Rain on Cafe Window</span>
-                            <span id="val-rain" class="text-amber-300 font-mono">45%</span>
-                        </div>
-                        <input id="slider-rain" type="range" min="0" max="100" value="45" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
-                    </div>
-
-                    <!-- Cozy Fireplace Crackle -->
-                    <div>
-                        <div class="flex justify-between text-stone-300 mb-1">
-                            <span>🔥 Warm Hearth Crackle</span>
-                            <span id="val-fire" class="text-amber-300 font-mono">35%</span>
-                        </div>
-                        <input id="slider-fire" type="range" min="0" max="100" value="35" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
-                    </div>
-
-                    <!-- Cafe Murmur & Espresso Hum -->
-                    <div>
-                        <div class="flex justify-between text-stone-300 mb-1">
-                            <span>☕ Cafe Chatter & Espresso</span>
-                            <span id="val-cafe" class="text-amber-300 font-mono">25%</span>
-                        </div>
-                        <input id="slider-cafe" type="range" min="0" max="100" value="25" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
-                    </div>
-
-                    <!-- Warm Lo-Fi Rhodes Chords -->
-                    <div>
-                        <div class="flex justify-between text-stone-300 mb-1">
-                            <span>🎹 Dreamy Lo-Fi Chords</span>
-                            <span id="val-lofi" class="text-amber-300 font-mono">40%</span>
-                        </div>
-                        <input id="slider-lofi" type="range" min="0" max="100" value="40" class="w-full h-1.5 bg-stone-700 rounded-lg cursor-pointer">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Interactive 3D Tips -->
-            <div class="mt-4 pt-3 border-t border-white/10 text-[11px] text-stone-400 space-y-1">
-                <div class="text-amber-200/90 font-medium">✨ Interactive 3D Objects:</div>
-                <p>• Click <strong>table lamps</strong> or <strong>pendant lights</strong> to toggle warm glow.</p>
-                <p>• Click <strong>coffee mugs</strong> or <strong>espresso bar</strong> for fresh steam.</p>
-                <p>• Drag to orbit camera, scroll to zoom, or pick a study seat above.</p>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Right Sidebar: Friends in Cafe, Shared Study Goals & Chat -->
-    <aside id="right-panel" class="fixed right-3 top-20 bottom-16 z-20 w-72 sm:w-80 flex flex-col pointer-events-none transition-transform duration-300">
-        <div class="glass-panel rounded-2xl flex-1 flex flex-col overflow-hidden pointer-events-auto">
-            
-            <!-- Tabs Header -->
-            <div class="grid grid-cols-3 border-b border-white/10 text-xs font-medium bg-black/20">
-                <button data-tab="friends" class="sidebar-tab py-2.5 text-amber-300 border-b-2 border-amber-400 bg-white/5 transition">
-                    👥 Friends (<span id="friends-count">1</span>)
-                </button>
-                <button data-tab="tasks" class="sidebar-tab py-2.5 text-stone-400 hover:text-stone-200 transition">
-                    ✅ Goals
-                </button>
-                <button data-tab="chat" class="sidebar-tab py-2.5 text-stone-400 hover:text-stone-200 transition">
-                    💬 Chat
-                </button>
-            </div>
-
-            <!-- TAB 1: Friends Sitting in the 3D Cafe -->
-            <div id="tab-friends" class="tab-content flex-1 flex flex-col p-3 overflow-y-auto custom-scroll space-y-2.5">
-                <div class="flex items-center justify-between text-[11px] text-stone-400 px-1">
-                    <span>Click any seat or friend to visit</span>
-                    <button id="toggle-status-btn" class="text-amber-300 hover:underline">Toggle Break/Focus</button>
-                </div>
-                <div id="friends-list" class="space-y-2">
-                    <!-- Populated dynamically -->
-                </div>
-            </div>
-
-            <!-- TAB 2: Shared Study Goals & Todo Board -->
-            <div id="tab-tasks" class="tab-content hidden flex-1 flex flex-col p-3 overflow-hidden">
-                <form id="task-form" class="flex gap-1.5 mb-3">
-                    <input id="task-input" type="text" maxlength="80" placeholder="Share a study goal..." class="flex-1 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400">
-                    <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs transition">+</button>
-                </form>
-                <div id="tasks-list" class="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1">
-                    <!-- Populated dynamically -->
-                </div>
-            </div>
-
-            <!-- TAB 3: Live Cafe Chat & Encouragements -->
-            <div id="tab-chat" class="tab-content hidden flex-1 flex flex-col p-3 overflow-hidden">
-                <div id="chat-messages" class="flex-1 overflow-y-auto custom-scroll space-y-2 pr-1 mb-2">
-                    <!-- Populated dynamically -->
-                </div>
-                <!-- Quick Reactions -->
-                <div class="flex items-center justify-between gap-1 mb-2">
-                    <button data-cheer="☕ Sent fresh coffee to the room!" class="cheer-btn flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-amber-200 transition">☕ Coffee</button>
-                    <button data-cheer="🔥 Stay locked in, everyone!" class="cheer-btn flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-amber-200 transition">🔥 Lock In</button>
-                    <button data-cheer="👏 Great job on that study block!" class="cheer-btn flex-1 py-1 rounded-lg bg-white/5 hover:bg-white/15 text-[11px] text-amber-200 transition">👏 Cheer</button>
-                </div>
-                <form id="chat-form" class="flex gap-1.5">
-                    <input id="chat-input" type="text" maxlength="140" placeholder="Whisper to the cafe..." class="flex-1 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400">
-                    <button type="submit" class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-semibold text-xs transition">Send</button>
-                </form>
-            </div>
-        </div>
-    </aside>
-
-    <!-- Bottom Mobile/Desktop Quick Controls Bar -->
-    <footer class="fixed bottom-3 left-3 right-3 z-30 flex items-center justify-between pointer-events-none">
-        <div class="glass-panel px-3 py-1.5 rounded-xl text-[11px] text-stone-300 flex items-center gap-3 pointer-events-auto">
-            <span>🪑 My Seat: <strong id="footer-seat-name" class="text-amber-300">Window Booth</strong></span>
-            <span class="hidden sm:inline text-stone-500">|</span>
-            <span class="hidden sm:inline">🎯 Task: <strong id="footer-task-name" class="text-stone-200">Reading & Notes</strong></span>
-        </div>
-
-        <div class="flex items-center gap-2 pointer-events-auto">
-            <button id="toggle-ui-btn" class="glass-panel px-3 py-1.5 rounded-xl text-xs text-amber-200 hover:bg-white/10 transition">
-                👁️ Hide Panels
-            </button>
-        </div>
-    </footer>
-
-    <!-- Modal: Edit Profile / Switch Study Room -->
-    <div id="profile-modal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
-        <div class="glass-panel rounded-3xl max-w-md w-full p-6 border border-amber-400/30 shadow-2xl">
-            <h2 class="serif-title text-xl font-semibold text-amber-100 mb-1">Welcome to Cozyhaven 3D Cafe</h2>
-            <p class="text-xs text-stone-400 mb-4">Customize your avatar, pick your study seat, or enter a shared room code with friends.</p>
-
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-stone-300 mb-1 font-medium">Your Display Name</label>
-                    <input id="modal-name-input" type="text" maxlength="20" class="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400" placeholder="e.g. Maya">
-                </div>
-
-                <div>
-                    <label class="block text-stone-300 mb-1 font-medium">What are you working on?</label>
-                    <input id="modal-task-input" type="text" maxlength="45" class="w-full bg-black/50 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400" placeholder="e.g. Organic Chemistry Ch. 4">
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-stone-300 mb-1 font-medium">Favorite Study Zone</label>
-                        <select id="modal-zone-select" class="w-full bg-stone-900 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400">
-                            <option value="window">🌧️ Window Booth</option>
-                            <option value="library">📚 Quiet Library Desk</option>
-                            <option value="group">💻 Group Wooden Table</option>
-                            <option value="lounge">🛋️ Cozy Lounge Sofa</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-stone-300 mb-1 font-medium">Avatar Color</label>
-                        <select id="modal-color-select" class="w-full bg-stone-900 border border-white/15 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400">
-                            <option value="#f59e0b">Amber Gold</option>
-                            <option value="#10b981">Matcha Green</option>
-                            <option value="#38bdf8">Rainy Sky Blue</option>
-                            <option value="#f472b6">Rose Latte</option>
-                            <option value="#a78bfa">Lavender Tea</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-stone-300 mb-1 font-medium">Shared Study Room Code</label>
-                    <input id="modal-room-input" type="text" maxlength="20" class="w-full bg-black/50 border border-amber-400/40 rounded-xl px-3 py-2 text-amber-200 font-mono uppercase focus:outline-none focus:border-amber-400" value="COZY-MAIN">
-                    <span class="text-[10px] text-stone-400">Share this code with friends so you appear in the same cafe room!</span>
-                </div>
-            </div>
-
-            <div class="flex justify-end gap-2 mt-6">
-                <button id="modal-cancel-btn" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-stone-300 text-xs font-medium transition">Cancel</button>
-                <button id="modal-save-btn" class="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-semibold shadow-lg transition">Join Cafe Seat</button>
-            </div>
-        </div>
+  <!-- Left Panel: Pomodoro Timer & Sound Mixer -->
+  <div class="fixed top-20 left-4 z-10 w-64 sm:w-72 flex flex-col gap-3 pointer-events-none">
+    
+    <!-- Synced Pomodoro Timer -->
+    <div class="glass-panel p-4 rounded-2xl pointer-events-auto">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold uppercase tracking-wider text-amber-300/90">Shared Study Timer</span>
+        <span id="timer-mode-badge" class="text-[11px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30">Focus 25m</span>
+      </div>
+      <div id="timer-display" class="text-4xl font-bold text-center my-2 font-mono tracking-wider text-amber-50">25:00</div>
+      <div class="flex gap-2 mt-3">
+        <button onclick="toggleTimer()" id="timer-start-btn" class="flex-1 bg-amber-600 hover:bg-amber-500 py-1.5 rounded-xl text-xs font-semibold transition">Start / Pause</button>
+        <button onclick="resetTimer(25, 'Focus 25m')" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs transition">25m</button>
+        <button onclick="resetTimer(5, 'Break 5m')" class="bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl text-xs transition">5m</button>
+      </div>
     </div>
 
-    <!-- Firebase & Application Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <!-- Ambient Audio Mixer -->
+    <div class="glass-panel p-4 rounded-2xl pointer-events-auto">
+      <span class="text-xs font-semibold uppercase tracking-wider text-amber-300/90 block mb-2.5">Cafe Soundscape</span>
+      <div class="space-y-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span>🌧️ Gentle Rain</span>
+          <input type="range" min="0" max="1" step="0.05" value="0" oninput="setAudioVolume('rain', this.value)" class="w-24 accent-amber-500">
+        </div>
+        <div class="flex items-center justify-between">
+          <span>🔥 Fireplace Crackle</span>
+          <input type="range" min="0" max="1" step="0.05" value="0" oninput="setAudioVolume('fire', this.value)" class="w-24 accent-amber-500">
+        </div>
+        <div class="flex items-center justify-between">
+          <span>☕ Warm Lo-Fi Pad</span>
+          <input type="range" min="0" max="1" step="0.05" value="0" oninput="setAudioVolume('lofi', this.value)" class="w-24 accent-amber-500">
+        </div>
+      </div>
+    </div>
+  </div>
 
-        /**************************************************************
-         * 1. STATE & STUDY ZONE DEFINITIONS
-         **************************************************************/
-        const ZONES = {
-            overview: {
-                name: "Cafe Overview",
-                camPos: { x: 0, y: 9.5, z: 13.5 },
-                lookAt: { x: 0, y: 1.8, z: 0 },
-                seatOffsets: [{ x: 0, y: 0, z: 0 }]
-            },
-            window: {
-                name: "Window Booth",
-                camPos: { x: -3.2, y: 3.1, z: 2.2 },
-                lookAt: { x: -6.2, y: 1.6, z: -1.5 },
-                seatOffsets: [
-                    { x: -6.1, y: 0, z: -2.8, rotY: 0 },
-                    { x: -6.1, y: 0, z: -0.2, rotY: Math.PI },
-                    { x: -5.3, y: 0, z: -2.8, rotY: 0 },
-                    { x: -5.3, y: 0, z: -0.2, rotY: Math.PI }
-                ]
-            },
-            library: {
-                name: "Quiet Library",
-                camPos: { x: 3.2, y: 3.2, z: -1.5 },
-                lookAt: { x: 5.8, y: 1.7, z: -5.2 },
-                seatOffsets: [
-                    { x: 5.5, y: 0, z: -4.2, rotY: Math.PI },
-                    { x: 6.5, y: 0, z: -4.2, rotY: Math.PI },
-                    { x: 4.5, y: 0, z: -4.2, rotY: Math.PI }
-                ]
-            },
-            group: {
-                name: "Group Table",
-                camPos: { x: 0, y: 4.2, z: 5.2 },
-                lookAt: { x: 0, y: 1.3, z: 0.4 },
-                seatOffsets: [
-                    { x: -1.2, y: 0, z: -0.6, rotY: 0 },
-                    { x: 1.2, y: 0, z: -0.6, rotY: 0 },
-                    { x: -1.2, y: 0, z: 1.4, rotY: Math.PI },
-                    { x: 1.2, y: 0, z: 1.4, rotY: Math.PI },
-                    { x: -2.3, y: 0, z: 0.4, rotY: Math.PI / 2 },
-                    { x: 2.3, y: 0, z: 0.4, rotY: -Math.PI / 2 }
-                ]
-            },
-            lounge: {
-                name: "Cozy Lounge",
-                camPos: { x: 1.8, y: 3.0, z: 6.8 },
-                lookAt: { x: 5.2, y: 1.2, z: 3.6 },
-                seatOffsets: [
-                    { x: 5.4, y: 0, z: 2.1, rotY: 0 },
-                    { x: 6.3, y: 0, z: 2.1, rotY: 0 },
-                    { x: 3.9, y: 0, z: 3.6, rotY: Math.PI / 2 },
-                    { x: 5.8, y: 0, z: 5.0, rotY: Math.PI }
-                ]
-            }
-        };
+  <!-- Right Panel: Online Friends, Tasks & Live Chat -->
+  <div class="fixed top-20 right-4 z-10 w-64 sm:w-80 flex flex-col gap-3 max-h-[calc(100vh-160px)] pointer-events-none">
+    
+    <!-- Active Members in Room -->
+    <div class="glass-panel p-3.5 rounded-2xl pointer-events-auto">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold uppercase tracking-wider text-amber-300/90">Friends in Cafe</span>
+        <span id="member-count" class="text-xs font-bold text-amber-400">1 Online</span>
+      </div>
+      <div id="member-list" class="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto text-xs"></div>
+    </div>
 
-        const RANDOM_NAMES = ["Aria", "Liam", "Sora", "Noah", "Chloe", "Kai", "Elena", "Milo"];
-        const RANDOM_COLORS = ["#f59e0b", "#10b981", "#38bdf8", "#f472b6", "#a78bfa"];
+    <!-- Shared Study Goals -->
+    <div class="glass-panel p-3.5 rounded-2xl pointer-events-auto flex flex-col max-h-48">
+      <span class="text-xs font-semibold uppercase tracking-wider text-amber-300/90 mb-2">Shared Study Tasks</span>
+      <div id="task-list" class="flex-1 overflow-y-auto space-y-1.5 text-xs mb-2 pr-1"></div>
+      <div class="flex gap-1.5">
+        <input id="task-input" type="text" placeholder="Add a study goal..." onkeydown="if(event.key==='Enter') addTask()"
+          class="flex-1 bg-black/40 border border-amber-500/30 rounded-lg px-2.5 py-1 text-xs text-amber-50 focus:outline-none">
+        <button onclick="addTask()" class="bg-amber-600 hover:bg-amber-500 px-2.5 py-1 rounded-lg text-xs font-semibold">+</button>
+      </div>
+    </div>
 
-        const state = {
-            user: null,
-            userId: "local-" + Math.random().toString(36).substring(2, 9),
-            roomCode: "COZY-MAIN",
-            myProfile: {
-                name: RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)],
-                task: "Deep Focus Session",
-                zone: "window",
-                status: "Focusing", // "Focusing" | "On Break"
-                color: RANDOM_COLORS[Math.floor(Math.random() * RANDOM_COLORS.length)]
-            },
-            currentCameraZone: "overview",
-            timer: {
-                mode: "focus",
-                durationSec: 25 * 60,
-                remainingSec: 25 * 60,
-                isRunning: false,
-                targetEndMs: null
-            },
-            participants: new Map(),
-            tasks: [],
-            messages: [],
-            uiHidden: false
-        };
+    <!-- Live Room Chat -->
+    <div class="glass-panel p-3.5 rounded-2xl pointer-events-auto flex flex-col flex-1 min-h-[160px] max-h-60">
+      <span class="text-xs font-semibold uppercase tracking-wider text-amber-300/90 mb-2">Cafe Chat</span>
+      <div id="chat-messages" class="flex-1 overflow-y-auto space-y-1.5 text-xs mb-2 pr-1">
+        <div class="text-amber-300/60 italic">Welcome! Enter the same Room Code with friends to study together.</div>
+      </div>
+      <div class="flex gap-1.5">
+        <input id="chat-input" type="text" placeholder="Say something..." onkeydown="if(event.key==='Enter') sendChat()"
+          class="flex-1 bg-black/40 border border-amber-500/30 rounded-lg px-2.5 py-1 text-xs text-amber-50 focus:outline-none">
+        <button onclick="sendChat()" class="bg-amber-600 hover:bg-amber-500 px-3 py-1 rounded-lg text-xs font-semibold">Send</button>
+      </div>
+    </div>
+  </div>
 
-        // Toast Helper
-        let toastTimeout = null;
-        function showToast(icon, text) {
-            const toast = document.getElementById("interaction-toast");
-            document.getElementById("toast-icon").textContent = icon;
-            document.getElementById("toast-text").textContent = text;
-            toast.classList.remove("opacity-0", "-translate-y-2");
-            toast.classList.add("opacity-100", "translate-y-0");
-            clearTimeout(toastTimeout);
-            toastTimeout = setTimeout(() => {
-                toast.classList.remove("opacity-100", "translate-y-0");
-                toast.classList.add("opacity-0", "-translate-y-2");
-            }, 2600);
+  <!-- Bottom Bar: Study Zone Selector -->
+  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+    <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 overflow-x-auto max-w-[95vw]">
+      <button onclick="selectZone('overview', this)" class="zone-btn active px-3.5 py-2 rounded-xl text-xs font-semibold border border-transparent transition whitespace-nowrap">🏠 Overview</button>
+      <button onclick="selectZone('window', this)" class="zone-btn px-3.5 py-2 rounded-xl text-xs font-semibold border border-transparent transition whitespace-nowrap">🌧️ Window Booth</button>
+      <button onclick="selectZone('group', this)" class="zone-btn px-3.5 py-2 rounded-xl text-xs font-semibold border border-transparent transition whitespace-nowrap">💻 Group Table</button>
+      <button onclick="selectZone('library', this)" class="zone-btn px-3.5 py-2 rounded-xl text-xs font-semibold border border-transparent transition whitespace-nowrap">📚 Quiet Library</button>
+      <button onclick="selectZone('lounge', this)" class="zone-btn px-3.5 py-2 rounded-xl text-xs font-semibold border border-transparent transition whitespace-nowrap">🛋️ Cozy Lounge</button>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. THREE.JS 3D CAFE SCENE
+    // ==========================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x120d0a);
+    scene.fog = new THREE.FogExp2(0x120d0a, 0.028);
+
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(10, 8, 12);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.03;
+    controls.minDistance = 3;
+    controls.maxDistance = 24;
+    controls.target.set(0, 1.5, 0);
+
+    // Warm Cafe Lighting
+    const ambientLight = new THREE.AmbientLight(0xffdcb5, 0.45);
+    scene.add(ambientLight);
+
+    const mainWarmLight = new THREE.PointLight(0xff9d42, 1.4, 25);
+    mainWarmLight.position.set(0, 6, 0);
+    mainWarmLight.castShadow = true;
+    scene.add(mainWarmLight);
+
+    const windowMoonLight = new THREE.DirectionalLight(0x6495ed, 0.5);
+    windowMoonLight.position.set(-12, 8, -5);
+    scene.add(windowMoonLight);
+
+    // Materials
+    const woodFloorMat = new THREE.MeshStandardMaterial({ color: 0x4a2f1d, roughness: 0.7 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x2b1d16, roughness: 0.85 });
+    const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x331f14, roughness: 0.6 });
+    const cushionMat = new THREE.MeshStandardMaterial({ color: 0x9c4127, roughness: 0.8 });
+    const plantLeafMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.6 });
+
+    // Floor & Walls
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(16, 0.3, 14), woodFloorMat);
+    floor.position.y = -0.15;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(16, 7, 0.3), wallMat);
+    backWall.position.set(0, 3.5, -7);
+    backWall.receiveShadow = true;
+    scene.add(backWall);
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 14), wallMat);
+    leftWall.position.set(-8, 3.5, 0);
+    scene.add(leftWall);
+
+    // Large Rainy Window on Left Wall
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x1e3a5f, transparent: true, opacity: 0.45, roughness: 0.1 });
+    const windowGlass = new THREE.Mesh(new THREE.BoxGeometry(0.1, 4.2, 8), glassMat);
+    windowGlass.position.set(-7.8, 3.6, -1);
+    scene.add(windowGlass);
+
+    // Helper: Build Table + Chairs
+    function createTableSet(x, z, w, d) {
+      const group = new THREE.Group();
+      const top = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), darkWoodMat);
+      top.position.y = 1.1;
+      top.castShadow = true;
+      group.add(top);
+
+      const legGeo = new THREE.CylinderGeometry(0.07, 0.07, 1.1);
+      [[-w/2+0.2, -d/2+0.2], [w/2-0.2, -d/2+0.2], [-w/2+0.2, d/2-0.2], [w/2-0.2, d/2-0.2]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(legGeo, darkWoodMat);
+        leg.position.set(lx, 0.55, lz);
+        group.add(leg);
+      });
+
+      // Tiny glowing lamp on table
+      const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.25), darkWoodMat);
+      lampBase.position.set(0, 1.25, 0);
+      group.add(lampBase);
+
+      const shadeMat = new THREE.MeshStandardMaterial({ color: 0xffb74d, emissive: 0xff9800, emissiveIntensity: 0.9 });
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.25, 16), shadeMat);
+      shade.position.set(0, 1.45, 0);
+      group.add(shade);
+
+      const tLight = new THREE.PointLight(0xffa726, 0.85, 6);
+      tLight.position.set(0, 1.6, 0);
+      group.add(tLight);
+
+      group.position.set(x, 0, z);
+      scene.add(group);
+    }
+
+    // Study Zones Furniture
+    createTableSet(-5.2, -2, 2.2, 1.6); // Window Booth
+    createTableSet(0, 0.5, 3.6, 2.0);   // Group Table
+    createTableSet(4.8, -3.8, 2.4, 1.6); // Quiet Library
+
+    // Bookshelf in Library Zone
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(4.5, 5.2, 0.7), darkWoodMat);
+    shelf.position.set(4.8, 2.6, -6.5);
+    shelf.castShadow = true;
+    scene.add(shelf);
+
+    // Cozy Lounge Sofa & Rug
+    const rug = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 0.03, 32), new THREE.MeshStandardMaterial({ color: 0x6b2d1e }));
+    rug.position.set(4.5, 0.02, 3.5);
+    scene.add(rug);
+
+    const sofa = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.7, 1.2), cushionMat);
+    sofa.position.set(4.5, 0.35, 4.6);
+    sofa.castShadow = true;
+    scene.add(sofa);
+
+    const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.3, 0.3), cushionMat);
+    sofaBack.position.set(4.5, 0.65, 5.1);
+    scene.add(sofaBack);
+
+    // Potted Plants
+    function createPlant(x, z) {
+      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.25, 0.6, 12), cushionMat);
+      pot.position.set(x, 0.3, z);
+      scene.add(pot);
+      const bush = new THREE.Mesh(new THREE.DodecahedronGeometry(0.65, 1), plantLeafMat);
+      bush.position.set(x, 1.0, z);
+      scene.add(bush);
+    }
+    createPlant(-7, -6);
+    createPlant(-7, 4.5);
+    createPlant(7, -6);
+    createPlant(7, 5);
+
+    // Rain Particles Outside Window
+    const rainCount = 300;
+    const rainGeo = new THREE.BufferGeometry();
+    const rainPos = new Float32Array(rainCount * 3);
+    for (let i = 0; i < rainCount; i++) {
+      rainPos[i * 3] = -9.2 - Math.random() * 3;
+      rainPos[i * 3 + 1] = Math.random() * 8;
+      rainPos[i * 3 + 2] = -6 + Math.random() * 12;
+    }
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+    const rainMat = new THREE.PointsMaterial({ color: 0x90caf9, size: 0.08, transparent: true, opacity: 0.6 });
+    const rainSystem = new THREE.Points(rainGeo, rainMat);
+    scene.add(rainSystem);
+
+    // Zone Camera Targets & Seat Coordinates
+    const ZONES = {
+      overview: { cam: [10, 8, 12], target: [0, 1.5, 0], seats: [[0, 0, 2.2], [-1.2, 0, 2.2], [1.2, 0, 2.2]] },
+      window:   { cam: [-1.5, 3.6, -1.8], target: [-5.2, 1.2, -2], seats: [[-5.2, 0, -0.7], [-5.2, 0, -3.3], [-3.8, 0, -2.0]] },
+      group:    { cam: [0, 4.5, 5.5], target: [0, 1.2, 0.5], seats: [[-1.1, 0, 1.8], [1.1, 0, 1.8], [-1.1, 0, -0.8], [1.1, 0, -0.8]] },
+      library:  { cam: [4.8, 3.8, 0.5], target: [4.8, 1.5, -4.2], seats: [[4.0, 0, -2.6], [5.6, 0, -2.6], [4.8, 0, -5.0]] },
+      lounge:   { cam: [1.0, 3.5, 6.5], target: [4.5, 1.0, 3.8], seats: [[3.8, 0.2, 4.4], [5.2, 0.2, 4.4], [4.5, 0, 2.6]] }
+    };
+
+    let targetCamPos = new THREE.Vector3(...ZONES.overview.cam);
+    let targetLookAt = new THREE.Vector3(...ZONES.overview.target);
+    let isTransitioning = false;
+
+    function selectZone(zoneKey, btnEl) {
+      document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+
+      const z = ZONES[zoneKey] || ZONES.overview;
+      targetCamPos.set(...z.cam);
+      targetLookAt.set(...z.target);
+      isTransitioning = true;
+
+      myState.zone = zoneKey;
+      updateAvatars();
+      broadcastState();
+    }
+
+    // ==========================================
+    // 2. 3D AVATARS & FLOATING NAME TAGS
+    // ==========================================
+    const avatarMeshes = {};
+
+    function createNameSprite(name, color) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(20, 14, 10, 0.85)';
+      ctx.roundRect(10, 8, 236, 48, 24);
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(name.slice(0, 14), 128, 40);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex }));
+      sprite.scale.set(1.8, 0.45, 1);
+      sprite.position.y = 2.15;
+      return sprite;
+    }
+
+    function buildAvatarMesh(colorHex, name) {
+      const group = new THREE.Group();
+      const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 });
+      const headMat = new THREE.MeshStandardMaterial({ color: 0xffdab9, roughness: 0.6 });
+
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 0.9, 16), bodyMat);
+      torso.position.y = 0.75;
+      group.add(torso);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), headMat);
+      head.position.y = 1.45;
+      group.add(head);
+
+      const label = createNameSprite(name, colorHex);
+      group.add(label);
+      return group;
+    }
+
+    function updateAvatars() {
+      // Remove disconnected avatars
+      Object.keys(avatarMeshes).forEach(id => {
+        if (!roomMembers[id]) {
+          scene.remove(avatarMeshes[id]);
+          delete avatarMeshes[id];
         }
+      });
 
-        /**************************************************************
-         * 2. THREE.JS 3D CAFE SCENE SETUP & ARCHITECTURE
-         **************************************************************/
-        const container = document.getElementById("canvas-container");
-        const labelsContainer = document.getElementById("labels-container");
+      // Group members by zone to assign seats
+      const zoneCounts = {};
+      Object.values(roomMembers).forEach(member => {
+        const zKey = member.zone || 'overview';
+        zoneCounts[zKey] = (zoneCounts[zKey] || 0);
+        const seats = (ZONES[zKey] || ZONES.overview).seats;
+        const seat = seats[zoneCounts[zKey] % seats.length];
+        zoneCounts[zKey]++;
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0d0907);
-        scene.fog = new THREE.FogExp2(0x120c09, 0.025);
-
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 9.5, 13.5);
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.1;
-        container.appendChild(renderer.domElement);
-
-        // Camera Target & Smooth Orbit State
-        const camTarget = new THREE.Vector3(0, 1.8, 0);
-        const desiredCamPos = new THREE.Vector3(0, 9.5, 13.5);
-        const desiredLookAt = new THREE.Vector3(0, 1.8, 0);
-        let isDragging = false;
-        let pointerDownPos = { x: 0, y: 0 };
-        let prevPointerPos = { x: 0, y: 0 };
-        let sphericalOffset = new THREE.Spherical();
-
-        // Reusable Materials
-        const mats = {
-            woodFloor: new THREE.MeshStandardMaterial({ color: 0x4a2e1b, roughness: 0.75, metalness: 0.05 }),
-            darkWood: new THREE.MeshStandardMaterial({ color: 0x2c1a10, roughness: 0.65 }),
-            warmWood: new THREE.MeshStandardMaterial({ color: 0x7c4d2b, roughness: 0.55 }),
-            wallBrick: new THREE.MeshStandardMaterial({ color: 0x5c3324, roughness: 0.85 }),
-            wallPlaster: new THREE.MeshStandardMaterial({ color: 0x3a2820, roughness: 0.8 }),
-            metalDark: new THREE.MeshStandardMaterial({ color: 0x1f1f24, roughness: 0.4, metalness: 0.7 }),
-            brass: new THREE.MeshStandardMaterial({ color: 0xd99b26, roughness: 0.3, metalness: 0.8 }),
-            leather: new THREE.MeshStandardMaterial({ color: 0x6e3219, roughness: 0.5 }),
-            sofaFabric: new THREE.MeshStandardMaterial({ color: 0x2b4c3f, roughness: 0.85 }),
-            rugWarm: new THREE.MeshStandardMaterial({ color: 0x7a2e22, roughness: 0.95 }),
-            plantLeaf: new THREE.MeshStandardMaterial({ color: 0x2d6a3e, roughness: 0.6 }),
-            terracotta: new THREE.MeshStandardMaterial({ color: 0x9c4a2d, roughness: 0.7 }),
-            ceramic: new THREE.MeshStandardMaterial({ color: 0xf5ebe1, roughness: 0.25 }),
-            glassWindow: new THREE.MeshPhysicalMaterial({
-                color: 0x6792ab,
-                transparent: true,
-                opacity: 0.22,
-                roughness: 0.1,
-                metalness: 0.1
-            }),
-            bulbGlow: new THREE.MeshBasicMaterial({ color: 0xffcf70 })
-        };
-
-        // Interactive Raycaster List
-        const interactiveMeshes = [];
-        const toggleableLights = [];
-        const steamGroups = [];
-
-        // Lighting Setup
-        const ambientLight = new THREE.AmbientLight(0xffdfb8, 0.38);
-        scene.add(ambientLight);
-
-        // Moonlight / Rainy Dusk light from left window
-        const windowDirLight = new THREE.DirectionalLight(0x6088b8, 0.5);
-        windowDirLight.position.set(-14, 8, -1);
-        scene.add(windowDirLight);
-
-        // Build Architecture (Floor, Walls, Window)
-        function buildCafeArchitecture() {
-            const roomGroup = new THREE.Group();
-
-            // Main Wooden Floor
-            const floorGeo = new THREE.BoxGeometry(16, 0.4, 14);
-            const floor = new THREE.Mesh(floorGeo, mats.woodFloor);
-            floor.position.set(0, -0.2, 0);
-            floor.receiveShadow = true;
-            roomGroup.add(floor);
-
-            // Floorboard Planks Accent Lines
-            for (let i = -7; i <= 7; i += 1) {
-                const strip = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.41, 14), mats.darkWood);
-                strip.position.set(i, -0.2, 0);
-                roomGroup.add(strip);
-            }
-
-            // Back Wall (North)
-            const backWall = new THREE.Mesh(new THREE.BoxGeometry(16.4, 7, 0.4), mats.wallBrick);
-            backWall.position.set(0, 3.5, -7);
-            backWall.receiveShadow = true;
-            roomGroup.add(backWall);
-
-            // Right Wall (East)
-            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 7, 14.4), mats.wallPlaster);
-            rightWall.position.set(8, 3.5, 0);
-            rightWall.receiveShadow = true;
-            roomGroup.add(rightWall);
-
-            // Left Wall with Large Rainy Cafe Window Cutout (West)
-            const leftWallBottom = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.3, 14), mats.wallBrick);
-            leftWallBottom.position.set(-8, 0.65, 0);
-            roomGroup.add(leftWallBottom);
-
-            const leftWallTop = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.5, 14), mats.wallBrick);
-            leftWallTop.position.set(-8, 6.25, 0);
-            roomGroup.add(leftWallTop);
-
-            const leftPillarFront = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.2, 2.2), mats.wallBrick);
-            leftPillarFront.position.set(-8, 3.4, 5.9);
-            roomGroup.add(leftPillarFront);
-
-            const leftPillarBack = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.2, 2.2), mats.wallBrick);
-            leftPillarBack.position.set(-8, 3.4, -5.9);
-            roomGroup.add(leftPillarBack);
-
-            // Window Glass Pane & Mullions
-            const glassPane = new THREE.Mesh(new THREE.BoxGeometry(0.08, 4.2, 9.6), mats.glassWindow);
-            glassPane.position.set(-8, 3.4, 0);
-            roomGroup.add(glassPane);
-
-            for (let z = -3.2; z <= 3.2; z += 3.2) {
-                const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.18, 4.2, 0.12), mats.darkWood);
-                mullion.position.set(-8, 3.4, z);
-                roomGroup.add(mullion);
-            }
-            const horizMullion = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 9.6), mats.darkWood);
-            horizMullion.position.set(-8, 3.6, 0);
-            roomGroup.add(horizMullion);
-
-            // Outside Dusk City Silhouette Backdrop
-            const skyBackdrop = new THREE.Mesh(
-                new THREE.PlaneGeometry(24, 14),
-                new THREE.MeshBasicMaterial({ color: 0x0f1926, side: THREE.DoubleSide })
-            );
-            skyBackdrop.position.set(-13.5, 4, 0);
-            skyBackdrop.rotation.y = Math.PI / 2;
-            roomGroup.add(skyBackdrop);
-
-            // Distant Warm City Window Lights Outside
-            for (let i = 0; i < 18; i++) {
-                const winLight = new THREE.Mesh(
-                    new THREE.PlaneGeometry(0.45, 0.65),
-                    new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0xffbe6b : 0xf59e0b })
-                );
-                winLight.position.set(-13.2, 1.8 + (i % 4) * 1.1, -5 + (i * 0.65));
-                winLight.rotation.y = Math.PI / 2;
-                roomGroup.add(winLight);
-            }
-
-            // Wooden Ceiling Beams
-            for (let z = -5; z <= 5; z += 5) {
-                const beam = new THREE.Mesh(new THREE.BoxGeometry(16, 0.35, 0.4), mats.darkWood);
-                beam.position.set(0, 6.8, z);
-                roomGroup.add(beam);
-            }
-
-            scene.add(roomGroup);
+        if (!avatarMeshes[member.id]) {
+          avatarMeshes[member.id] = buildAvatarMesh(member.color, member.name);
+          scene.add(avatarMeshes[member.id]);
         }
-
-        // Helper: Build Potted Plant
-        function createPottedPlant(x, y, z, scale = 1) {
-            const group = new THREE.Group();
-            const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.32 * scale, 0.22 * scale, 0.55 * scale, 12), mats.terracotta);
-            pot.position.y = 0.275 * scale;
-            pot.castShadow = true;
-            group.add(pot);
-
-            for (let i = 0; i < 7; i++) {
-                const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.26 * scale, 8, 8), mats.plantLeaf);
-                const angle = (i / 7) * Math.PI * 2;
-                leaf.scale.set(1.2, 0.45, 0.7);
-                leaf.position.set(
-                    Math.cos(angle) * 0.22 * scale,
-                    (0.55 + (i % 3) * 0.14) * scale,
-                    Math.sin(angle) * 0.22 * scale
-                );
-                leaf.rotation.y = -angle;
-                leaf.rotation.z = 0.35;
-                leaf.castShadow = true;
-                group.add(leaf);
-            }
-
-            group.position.set(x, y, z);
-            group.userData = {
-                interactive: true,
-                type: "plant",
-                message: "🌿 Watered the monstera plant! Looking lush."
-            };
-            pot.userData = group.userData;
-            interactiveMeshes.push(pot);
-            scene.add(group);
-            return group;
-        }
-
-        // Helper: Build Interactive Coffee Mug with Rising Steam
-        function createCoffeeMug(x, y, z, label = "Fresh Latte") {
-            const mugGroup = new THREE.Group();
-            const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.22, 12), mats.ceramic);
-            cup.position.y = 0.11;
-            cup.castShadow = true;
-            mugGroup.add(cup);
-
-            const coffeeTop = new THREE.Mesh(
-                new THREE.CircleGeometry(0.095, 12),
-                new THREE.MeshBasicMaterial({ color: 0x4b2c17 })
-            );
-            coffeeTop.rotation.x = -Math.PI / 2;
-            coffeeTop.position.y = 0.215;
-            mugGroup.add(coffeeTop);
-
-            // Steam Puff Particles
-            const steamPuffs = [];
-            for (let i = 0; i < 3; i++) {
-                const puff = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.045, 6, 6),
-                    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.45 })
-                );
-                puff.position.set(0, 0.28 + i * 0.12, 0);
-                mugGroup.add(puff);
-                steamPuffs.push(puff);
-            }
-
-            mugGroup.position.set(x, y, z);
-            const data = {
-                interactive: true,
-                type: "coffee",
-                steamActive: true,
-                puffs: steamPuffs,
-                message: `☕ Refilled your ${label} with hot espresso!`
-            };
-            cup.userData = data;
-            interactiveMeshes.push(cup);
-            steamGroups.push(data);
-            scene.add(mugGroup);
-        }
-
-        // Helper: Build Hanging Pendant Lamp or Desk Lamp
-        function createPendantLamp(x, y, z, zoneLabel) {
-            const group = new THREE.Group();
-            const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 7 - y, 6), mats.metalDark);
-            cord.position.y = (7 - y) / 2;
-            group.add(cord);
-
-            const shade = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.35, 16, 1, true), mats.brass);
-            shade.Material = mats.brass;
-            shade.material.side = THREE.DoubleSide;
-            group.add(shade);
-
-            const bulbMat = new THREE.MeshBasicMaterial({ color: 0xffd27d });
-            const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), bulbMat);
-            bulb.position.y = -0.1;
-            group.add(bulb);
-
-            const light = new THREE.PointLight(0xffa94d, 1.35, 11, 1.8);
-            light.position.set(0, -0.25, 0);
-            light.castShadow = true;
-            light.shadow.bias = -0.002;
-            group.add(light);
-
-            group.position.set(x, y, z);
-
-            const lampData = {
-                interactive: true,
-                type: "lamp",
-                isOn: true,
-                light,
-                bulbMat,
-                baseIntensity: 1.35,
-                message: `💡 Toggled the ${zoneLabel} warm pendant light`
-            };
-            shade.userData = lampData;
-            bulb.userData = lampData;
-            interactiveMeshes.push(shade, bulb);
-            toggleableLights.push(lampData);
-
-            scene.add(group);
-        }
-
-        // Build Furniture & Study Zones
-        function buildFurnitureZones() {
-            // 1. COFFEE COUNTER & ESPRESSO BAR (Back Left)
-            const counterGroup = new THREE.Group();
-            const counterBase = new THREE.Mesh(new THREE.BoxGeometry(5.4, 1.15, 1.3), mats.darkWood);
-            counterBase.position.set(-3.8, 0.575, -4.8);
-            counterBase.castShadow = true;
-            counterBase.receiveShadow = true;
-            counterGroup.add(counterBase);
-
-            const counterTop = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.1, 1.5), mats.warmWood);
-            counterTop.position.set(-3.8, 1.2, -4.8);
-            counterGroup.add(counterTop);
-
-            // Espresso Machine
-            const espressoMachine = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.75, 0.7), mats.brass);
-            espressoMachine.position.set(-4.6, 1.62, -4.8);
-            espressoMachine.castShadow = true;
-            espressoMachine.userData = {
-                interactive: true,
-                type: "espresso",
-                message: "☕ Pulled a fresh double shot of espresso for the room!"
-            };
-            interactiveMeshes.push(espressoMachine);
-            counterGroup.add(espressoMachine);
-
-            // Pastry Display Case
-            const pastryCase = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.65, 0.75), mats.glassWindow);
-            pastryCase.position.set(-2.4, 1.55, -4.8);
-            counterGroup.add(pastryCase);
-
-            scene.add(counterGroup);
-
-            // 2. ZONE 1: WINDOW BOOTH (Cozy Rain View, Left Side)
-            const boothTable = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.08, 1.3), mats.warmWood);
-            boothTable.position.set(-5.7, 0.78, -1.5);
-            boothTable.castShadow = true;
-            scene.add(boothTable);
-
-            const boothLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.15, 0.76, 8), mats.metalDark);
-            boothLeg.position.set(-5.7, 0.38, -1.5);
-            scene.add(boothLeg);
-
-            // North & South Leather Booth Benches
-            [-2.8, -0.2].forEach((zPos, idx) => {
-                const seat = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.45, 0.75), mats.leather);
-                seat.position.set(-5.7, 0.225, zPos);
-                seat.castShadow = true;
-                scene.add(seat);
-
-                const backrest = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.65, 0.2), mats.leather);
-                backrest.position.set(-5.7, 0.75, idx === 0 ? zPos - 0.3 : zPos + 0.3);
-                scene.add(backrest);
-            });
-
-            createCoffeeMug(-5.4, 0.82, -1.35, "Window Booth Cappuccino");
-
-            // 3. ZONE 2: QUIET CORNER LIBRARY & DESK (Back Right)
-            // Tall Bookshelves against Back & Right Walls
-            for (let bx = 2.5; bx <= 6.5; bx += 2.0) {
-                const shelfFrame = new THREE.Mesh(new THREE.BoxGeometry(1.85, 4.4, 0.55), mats.darkWood);
-                shelfFrame.position.set(bx, 2.2, -6.5);
-                shelfFrame.castShadow = true;
-                scene.add(shelfFrame);
-
-                // Colorful Book Rows
-                const bookColors = [0xb45309, 0x15803d, 0x1d4ed8, 0x991b1b, 0xd97706];
-                for (let row = 0; row < 4; row++) {
-                    for (let b = 0; b < 6; b++) {
-                        const book = new THREE.Mesh(
-                            new THREE.BoxGeometry(0.18, 0.48 + (b % 2) * 0.08, 0.38),
-                            new THREE.MeshStandardMaterial({ color: bookColors[(row + b) % bookColors.length], roughness: 0.7 })
-                        );
-                        book.position.set(bx - 0.6 + b * 0.24, 0.7 + row * 0.95, -6.32);
-                        book.userData = {
-                            interactive: true,
-                            type: "book",
-                            message: "📖 Opened 'The Art of Deep Focus & Cozy Architecture'"
-                        };
-                        interactiveMeshes.push(book);
-                        scene.add(book);
-                    }
-                }
-            }
-
-            // Library Reading Desk
-            const libDesk = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.1, 1.3), mats.warmWood);
-            libDesk.position.set(5.5, 0.8, -4.9);
-            libDesk.castShadow = true;
-            scene.add(libDesk);
-
-            const libLegL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.78, 1.2), mats.darkWood);
-            libLegL.position.set(4.0, 0.39, -4.9);
-            const libLegR = libLegL.clone();
-            libLegR.position.set(7.0, 0.39, -4.9);
-            scene.add(libLegL, libLegR);
-
-            createCoffeeMug(5.9, 0.85, -4.75, "Library Earl Grey Tea");
-
-            // 4. ZONE 3: GROUP STUDY BIG WOODEN TABLE (Center)
-            const rugCenter = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.03, 3.8), mats.rugWarm);
-            rugCenter.position.set(0, 0.015, 0.4);
-            rugCenter.receiveShadow = true;
-            scene.add(rugCenter);
-
-            const groupTable = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.12, 1.7), mats.warmWood);
-            groupTable.position.set(0, 0.8, 0.4);
-            groupTable.castShadow = true;
-            groupTable.receiveShadow = true;
-            scene.add(groupTable);
-
-            [[-1.6, -0.25], [1.6, -0.25], [-1.6, 1.05], [1.6, 1.05]].forEach(([lx, lz]) => {
-                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.78, 8), mats.metalDark);
-                leg.position.set(lx, 0.39, lz);
-                scene.add(leg);
-            });
-
-            // Laptop Props on Group Table
-            [[-0.9, 0.05], [0.9, 0.75]].forEach(([lx, lz], idx) => {
-                const base = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.02, 0.32), mats.metalDark);
-                base.position.set(lx, 0.87, lz);
-                scene.add(base);
-                const screen = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.45, 0.3, 0.02),
-                    new THREE.MeshBasicMaterial({ color: idx === 0 ? 0xfde68a : 0x93c5fd })
-                );
-                screen.position.set(lx, 1.02, idx === 0 ? lz - 0.15 : lz + 0.15);
-                screen.rotation.x = idx === 0 ? 0.2 : -0.2;
-                scene.add(screen);
-            });
-
-            createCoffeeMug(0.2, 0.86, 0.4, "Group Table Cortado");
-
-            // 5. ZONE 4: COZY LOUNGE SOFA & COFFEE TABLE (Front Right)
-            const loungeRug = new THREE.Mesh(new THREE.CylinderGeometry(2.3, 2.3, 0.03, 24), mats.rugWarm);
-            loungeRug.position.set(5.5, 0.015, 3.6);
-            scene.add(loungeRug);
-
-            const sofaSeat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.42, 0.95), mats.sofaFabric);
-            sofaSeat.position.set(5.8, 0.25, 2.1);
-            sofaSeat.castShadow = true;
-            scene.add(sofaSeat);
-
-            const sofaBack = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.65, 0.25), mats.sofaFabric);
-            sofaBack.position.set(5.8, 0.65, 1.72);
-            scene.add(sofaBack);
-
-            const coffeeTable = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.08, 20), mats.warmWood);
-            coffeeTable.position.set(5.6, 0.48, 3.6);
-            coffeeTable.castShadow = true;
-            scene.add(coffeeTable);
-
-            const ctBase = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 0.45, 16), mats.metalDark);
-            ctBase.position.set(5.6, 0.225, 3.6);
-            scene.add(ctBase);
-
-            createCoffeeMug(5.6, 0.52, 3.6, "Lounge Matcha Latte");
-
-            // Lush Potted Plants around the Cafe
-            createPottedPlant(-7.1, 0, -3.9, 1.3);
-            createPottedPlant(-7.1, 0, 3.8, 1.2);
-            createPottedPlant(7.1, 0, -2.5, 1.35);
-            createPottedPlant(7.1, 0, 5.2, 1.25);
-            createPottedPlant(0.8, 0, -6.1, 1.15);
-
-            // Hanging Warm Pendant Lamps above each study zone
-            createPendantLamp(-5.7, 4.4, -1.5, "Window Booth");
-            createPendantLamp(5.5, 4.5, -4.9, "Quiet Library");
-            createPendantLamp(0, 4.6, 0.4, "Group Study Table");
-            createPendantLamp(5.6, 4.3, 3.6, "Lounge Area");
-            createPendantLamp(-3.8, 4.5, -4.8, "Espresso Bar");
-        }
-
-        // Rain Particle System Outside Window
-        let rainSystem = null;
-        function buildRainParticles() {
-            const count = 450;
-            const geo = new THREE.BufferGeometry();
-            const positions = new Float32Array(count * 3);
-            for (let i = 0; i < count; i++) {
-                positions[i * 3] = -8.6 - Math.random() * 3.5;
-                positions[i * 3 + 1] = Math.random() * 8;
-                positions[i * 3 + 2] = -5.5 + Math.random() * 11;
-            }
-            geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-            const mat = new THREE.PointsMaterial({
-                color: 0x93c5fd,
-                size: 0.08,
-                transparent: true,
-                opacity: 0.65
-            });
-            rainSystem = new THREE.Points(geo, mat);
-            scene.add(rainSystem);
-        }
-
-        buildCafeArchitecture();
-        buildFurnitureZones();
-        buildRainParticles();
-
-        /**************************************************************
-         * 3. 3D AVATAR CREATION & SYNCING AT STUDY ZONES
-         **************************************************************/
-        const avatarMeshes = new Map(); // uid -> { group, labelEl }
-
-        function create3DAvatarMesh(colorHex) {
-            const group = new THREE.Group();
-            const bodyMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.5 });
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xfde2c4, roughness: 0.6 });
-
-            // Torso
-            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.75, 12), bodyMat);
-            torso.position.y = 0.62;
-            torso.castShadow = true;
-            group.add(torso);
-
-            // Head
-            const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), headMat);
-            head.position.y = 1.22;
-            head.castShadow = true;
-            group.add(head);
-
-            // Cozy Headphones
-            const band = new THREE.Mesh(new THREE.TorusGeometry(0.23, 0.03, 8, 16, Math.PI), mats.metalDark);
-            band.position.y = 1.24;
-            group.add(band);
-
-            return group;
-        }
-
-        function syncAvatarsIn3D() {
-            const activeIds = new Set(state.participants.keys());
-
-            // Remove departed avatars
-            for (const [uid, entry] of avatarMeshes.entries()) {
-                if (!activeIds.has(uid)) {
-                    scene.remove(entry.group);
-                    entry.labelEl.remove();
-                    avatarMeshes.delete(uid);
-                }
-            }
-
-            // Track seat index per zone so multiple friends sit side-by-side
-            const zoneOccupancy = { window: 0, library: 0, group: 0, lounge: 0, overview: 0 };
-
-            for (const [uid, person] of state.participants.entries()) {
-                const zKey = ZONES[person.zone] ? person.zone : "window";
-                const seats = ZONES[zKey].seatOffsets;
-                const seatIdx = zoneOccupancy[zKey] % seats.length;
-                zoneOccupancy[zKey]++;
-                const seat = seats[seatIdx];
-
-                let entry = avatarMeshes.get(uid);
-                if (!entry) {
-                    const group = create3DAvatarMesh(person.color || "#f59e0b");
-                    scene.add(group);
-
-                    const labelEl = document.createElement("div");
-                    labelEl.className = "avatar-label";
-                    labelsContainer.appendChild(labelEl);
-
-                    entry = { group, labelEl, color: person.color };
-                    avatarMeshes.set(uid, entry);
-                }
-
-                // Update torso color if changed
-                if (entry.color !== person.color) {
-                    entry.group.children[0].material.color.set(person.color || "#f59e0b");
-                    entry.color = person.color;
-                }
-
-                // Position smoothly at seat
-                entry.group.position.set(seat.x, seat.y, seat.z);
-                entry.group.rotation.y = seat.rotY || 0;
-
-                // Update floating label HTML
-                const isMe = uid === state.userId;
-                const statusBadge = person.status === "On Break"
-                    ? `<span class="text-sky-300">☕ Break</span>`
-                    : `<span class="text-emerald-300">🔥 Focusing</span>`;
-
-                entry.labelEl.innerHTML = `
-                    <div class="glass-panel px-2.5 py-1 rounded-xl border ${isMe ? 'border-amber-400/60' : 'border-white/15'} text-center whitespace-nowrap shadow-md">
-                        <div class="text-[11px] font-semibold text-amber-100 flex items-center justify-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full" style="background:${person.color || '#f59e0b'}"></span>
-                            <span>${escapeHtml(person.name || 'Scholar')}${isMe ? ' (You)' : ''}</span>
-                            <span>•</span>
-                            ${statusBadge}
-                        </div>
-                        <div class="text-[10px] text-stone-300 max-w-[150px] truncate">${escapeHtml(person.task || 'Studying')}</div>
-                    </div>
-                `;
-            }
-
-            renderFriendsSidebarList();
-        }
-
-        function updateFloatingLabelPositions() {
-            const widthHalf = window.innerWidth / 2;
-            const heightHalf = window.innerHeight / 2;
-
-            for (const [, entry] of avatarMeshes.entries()) {
-                const pos = entry.group.position.clone();
-                pos.y += 1.68; // Above head
-                pos.project(camera);
-
-                if (pos.z > 1) {
-                    entry.labelEl.style.opacity = "0";
-                } else {
-                    const x = (pos.x * widthHalf) + widthHalf;
-                    const y = -(pos.y * heightHalf) + heightHalf;
-                    entry.labelEl.style.left = `${x}px`;
-                    entry.labelEl.style.top = `${y}px`;
-                    entry.labelEl.style.opacity = state.uiHidden ? "0.25" : "1";
-                }
-            }
-        }
-
-        /**************************************************************
-         * 4. CAMERA MOVEMENT & 3D OBJECT INTERACTION
-         **************************************************************/
-        function moveCameraToZone(zoneKey) {
-            const z = ZONES[zoneKey] || ZONES.overview;
-            state.currentCameraZone = zoneKey;
-            desiredCamPos.set(z.camPos.x, z.camPos.y, z.camPos.z);
-            desiredLookAt.set(z.lookAt.x, z.lookAt.y, z.lookAt.z);
-
-            // Highlight active zone button
-            document.querySelectorAll(".zone-btn").forEach(btn => {
-                if (btn.dataset.zone === zoneKey) {
-                    btn.className = "zone-btn px-3 py-1.5 rounded-xl text-xs font-semibold transition bg-amber-500 text-stone-950 whitespace-nowrap";
-                } else {
-                    btn.className = "zone-btn px-3 py-1.5 rounded-xl text-xs font-medium text-stone-300 hover:text-white hover:bg-white/10 transition whitespace-nowrap";
-                }
-            });
-
-            // If user picked a study seat zone (not overview), move their avatar there too
-            if (zoneKey !== "overview" && state.myProfile.zone !== zoneKey) {
-                state.myProfile.zone = zoneKey;
-                updateMyProfileUI();
-                publishMyPresence();
-            }
-        }
-
-        // Orbit & Raycast Click Handling
-        const raycaster = new THREE.Raycaster();
-        const mouseNDC = new THREE.Vector2();
-
-        renderer.domElement.addEventListener("pointerdown", (e) => {
-            isDragging = true;
-            pointerDownPos = { x: e.clientX, y: e.clientY };
-            prevPointerPos = { x: e.clientX, y: e.clientY };
+        avatarMeshes[member.id].position.set(seat[0], seat[1], seat[2]);
+      });
+
+      // Update UI Member List
+      const listEl = document.getElementById('member-list');
+      const membersArr = Object.values(roomMembers);
+      document.getElementById('member-count').textContent = `${membersArr.length} Online`;
+      listEl.innerHTML = membersArr.map(m => `
+        <span class="px-2.5 py-1 rounded-full bg-white/10 border border-white/15 flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full" style="background:${m.color}"></span>
+          <span>${m.name}</span>
+          <span class="text-[10px] text-amber-300/70">(${m.zone})</span>
+        </span>
+      `).join('');
+    }
+
+    // ==========================================
+    // 3. PEERJS MULTIPLAYER ROOM ENGINE (HOST + CLIENTS)
+    // ==========================================
+    const COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6', '#ef4444'];
+    const myState = {
+      id: 'user_' + Math.random().toString(36).substring(2, 8),
+      name: 'Guest_' + Math.floor(100 + Math.random() * 899),
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      zone: 'overview'
+    };
+
+    let peer = null;
+    let isHost = false;
+    let hostConn = null;
+    let clientConns = [];
+    let roomMembers = { [myState.id]: myState };
+    let sharedTasks = [
+      { id: 1, text: 'Read 1 chapter with full focus', done: false },
+      { id: 2, text: 'Complete 1 Pomodoro session', done: false }
+    ];
+    let timerState = { seconds: 1500, running: false, label: 'Focus 25m' };
+
+    updateAvatars();
+    renderTasks();
+
+    function joinCafeRoom() {
+      const nameVal = document.getElementById('username-input').value.trim();
+      const roomVal = document.getElementById('room-input').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+      if (nameVal) myState.name = nameVal;
+      if (!roomVal) {
+        alert('Please enter a Room Code (for example: adda123)');
+        return;
+      }
+
+      // Rebuild own avatar with updated name
+      if (avatarMeshes[myState.id]) {
+        scene.remove(avatarMeshes[myState.id]);
+        delete avatarMeshes[myState.id];
+      }
+      roomMembers[myState.id] = myState;
+      updateAvatars();
+
+      const statusEl = document.getElementById('connection-status');
+      statusEl.textContent = `Connecting to room "${roomVal}"...`;
+
+      if (peer) peer.destroy();
+
+      const hostPeerId = `cozyhaven_room_${roomVal}_host`;
+
+      // Try claiming the Room Host ID first
+      peer = new Peer(hostPeerId);
+
+      peer.on('open', () => {
+        isHost = true;
+        statusEl.textContent = `🟢 Connected to Room: "${roomVal}" (Room Host)`;
+        appendChat('System', `You created & joined room "${roomVal}". Share this code with friends!`);
+      });
+
+      // When friends connect to this Host
+      peer.on('connection', (conn) => {
+        clientConns.push(conn);
+        conn.on('data', (data) => handleIncomingData(data, conn));
+        conn.on('close', () => {
+          clientConns = clientConns.filter(c => c !== conn);
+          if (conn.peerMemberId && roomMembers[conn.peerMemberId]) {
+            const leftName = roomMembers[conn.peerMemberId].name;
+            delete roomMembers[conn.peerMemberId];
+            updateAvatars();
+            broadcastHostSnapshot();
+            appendChat('System', `${leftName} left the cafe.`);
+          }
         });
+      });
 
-        window.addEventListener("pointermove", (e) => {
-            if (!isDragging) return;
-            const dx = (e.clientX - prevPointerPos.x) * 0.0055;
-            const dy = (e.clientY - prevPointerPos.y) * 0.0055;
-            prevPointerPos = { x: e.clientX, y: e.clientY };
-
-            const offset = desiredCamPos.clone().sub(desiredLookAt);
-            sphericalOffset.setFromVector3(offset);
-            sphericalOffset.theta -= dx;
-            sphericalOffset.phi = Math.max(0.25, Math.min(Math.PI / 2 - 0.08, sphericalOffset.phi - dy));
-            offset.setFromSpherical(sphericalOffset);
-            desiredCamPos.copy(desiredLookAt).add(offset);
-        });
-
-        window.addEventListener("pointerup", (e) => {
-            if (!isDragging) return;
-            isDragging = false;
-            const dist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
-            if (dist < 6) {
-                handleCanvasClick(e);
-            }
-        });
-
-        renderer.domElement.addEventListener("wheel", (e) => {
-            e.preventDefault();
-            const offset = desiredCamPos.clone().sub(desiredLookAt);
-            const len = Math.max(2.5, Math.min(18, offset.length() + e.deltaY * 0.008));
-            offset.setLength(len);
-            desiredCamPos.copy(desiredLookAt).add(offset);
-        }, { passive: false });
-
-        function handleCanvasClick(e) {
-            mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouseNDC, camera);
-
-            const hits = raycaster.intersectObjects(interactiveMeshes, false);
-            if (hits.length > 0) {
-                const data = hits[0].object.userData;
-                if (!data || !data.interactive) return;
-
-                if (data.type === "lamp") {
-                    data.isOn = !data.isOn;
-                    data.light.intensity = data.isOn ? data.baseIntensity : 0;
-                    data.bulbMat.color.setHex(data.isOn ? 0xffd27d : 0x44382c);
-                    showToast("💡", data.message);
-                } else if (data.type === "coffee") {
-                    data.steamActive = true;
-                    showToast("☕", data.message);
-                } else {
-                    showToast("✨", data.message);
-                }
-            }
+      // If Host ID is already taken, join as a Client!
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+          isHost = false;
+          connectAsClient(hostPeerId, roomVal);
+        } else {
+          statusEl.textContent = `⚠️ Connection notice: ${err.type}`;
         }
+      });
+    }
 
-        /**************************************************************
-         * 5. PROCEDURAL WEB AUDIO AMBIENT SOUND SYNTHESIZER
-         **************************************************************/
-        class CafeAudioSynth {
-            constructor() {
-                this.ctx = null;
-                this.isPlaying = false;
-                this.gains = {};
-                this.chordTimer = null;
-            }
+    function connectAsClient(hostPeerId, roomVal) {
+      const statusEl = document.getElementById('connection-status');
+      peer = new Peer();
 
-            init() {
-                if (this.ctx) return;
-                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                this.ctx = new AudioCtx();
+      peer.on('open', () => {
+        hostConn = peer.connect(hostPeerId, { reliable: true });
+        hostConn.on('open', () => {
+          statusEl.textContent = `🟢 Connected to Room: "${roomVal}"`;
+          hostConn.send({ type: 'JOIN', member: myState });
+          appendChat('System', `Joined room "${roomVal}" with friends!`);
+        });
+        hostConn.on('data', (data) => handleIncomingData(data));
+        hostConn.on('close', () => {
+          statusEl.textContent = `🔴 Disconnected from "${roomVal}"`;
+        });
+      });
+    }
 
-                // 1. Rain on Window (Bandpass filtered pink/white noise)
-                const noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 3, this.ctx.sampleRate);
-                const out = noiseBuffer.getChannelData(0);
-                let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-                for (let i = 0; i < out.length; i++) {
-                    const white = Math.random() * 2 - 1;
-                    b0 = 0.99886 * b0 + white * 0.0555179;
-                    b1 = 0.99332 * b1 + white * 0.0750759;
-                    b2 = 0.96900 * b2 + white * 0.1538520;
-                    b3 = 0.86650 * b3 + white * 0.3104856;
-                    b4 = 0.55000 * b4 + white * 0.5329522;
-                    b5 = -0.7616 * b5 - white * 0.0168980;
-                    out[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.04;
-                    b6 = white * 0.115926;
-                }
-
-                const rainSource = this.ctx.createBufferSource();
-                rainSource.buffer = noiseBuffer;
-                rainSource.loop = true;
-                const rainFilter = this.ctx.createBiquadFilter();
-                rainFilter.type = "lowpass";
-                rainFilter.frequency.value = 1150;
-                this.gains.rain = this.ctx.createGain();
-                this.gains.rain.gain.value = 0.45 * 0.35;
-                rainSource.connect(rainFilter).connect(this.gains.rain).connect(this.ctx.destination);
-                rainSource.start();
-
-                // 2. Hearth Crackle (Crackle impulses + warm low ember rumble)
-                const crackleBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 4, this.ctx.sampleRate);
-                const cData = crackleBuffer.getChannelData(0);
-                for (let i = 0; i < cData.length; i++) {
-                    cData[i] = Math.random() > 0.9965 ? (Math.random() * 2 - 1) * 0.65 : (Math.random() * 2 - 1) * 0.015;
-                }
-                const fireSource = this.ctx.createBufferSource();
-                fireSource.buffer = crackleBuffer;
-                fireSource.loop = true;
-                const fireFilter = this.ctx.createBiquadFilter();
-                fireFilter.type = "bandpass";
-                fireFilter.frequency.value = 1600;
-                this.gains.fire = this.ctx.createGain();
-                this.gains.fire.gain.value = 0.35 * 0.35;
-                fireSource.connect(fireFilter).connect(this.gains.fire).connect(this.ctx.destination);
-                fireSource.start();
-
-                // 3. Cafe Murmur & Espresso Warm Hum
-                const cafeSource = this.ctx.createBufferSource();
-                cafeSource.buffer = noiseBuffer;
-                cafeSource.loop = true;
-                const cafeFilter = this.ctx.createBiquadFilter();
-                cafeFilter.type = "bandpass";
-                cafeFilter.frequency.value = 380;
-                cafeFilter.Q.value = 1.4;
-                this.gains.cafe = this.ctx.createGain();
-                this.gains.cafe.gain.value = 0.25 * 0.4;
-                cafeSource.connect(cafeFilter).connect(this.gains.cafe).connect(this.ctx.destination);
-                cafeSource.start();
-
-                // 4. Dreamy Lo-Fi Chord Pad Synth
-                this.gains.lofi = this.ctx.createGain();
-                this.gains.lofi.gain.value = 0.40 * 0.16;
-                this.gains.lofi.connect(this.ctx.destination);
-
-                const chords = [
-                    [261.63, 329.63, 392.00, 493.88], // Cmaj7
-                    [220.00, 261.63, 329.63, 392.00], // Am7
-                    [174.61, 220.00, 261.63, 349.23], // Fmaj7
-                    [196.00, 246.94, 293.66, 349.23]  // G7
-                ];
-                let chordIdx = 0;
-
-                const playWarmChord = () => {
-                    if (!this.isPlaying || !this.ctx) return;
-                    const now = this.ctx.currentTime;
-                    const freqs = chords[chordIdx % chords.length];
-                    chordIdx++;
-
-                    freqs.forEach((f) => {
-                        const osc = this.ctx.createOscillator();
-                        const noteGain = this.ctx.createGain();
-                        osc.type = "triangle";
-                        osc.frequency.setValueAtTime(f, now);
-
-                        noteGain.gain.setValueAtTime(0.001, now);
-                        noteGain.gain.linearRampToValueAtTime(0.15, now + 1.2);
-                        noteGain.gain.exponentialRampToValueAtTime(0.0008, now + 4.8);
-
-                        osc.connect(noteGain).connect(this.gains.lofi);
-                        osc.start(now);
-                        osc.stop(now + 4.9);
-                    });
-                };
-
-                playWarmChord();
-                this.chordTimer = setInterval(playWarmChord, 5000);
-            }
-
-            toggle() {
-                if (!this.ctx) {
-                    this.init();
-                    this.isPlaying = true;
-                } else if (this.ctx.state === "suspended") {
-                    this.ctx.resume();
-                    this.isPlaying = true;
-                } else if (this.isPlaying) {
-                    this.ctx.suspend();
-                    this.isPlaying = false;
-                } else {
-                    this.ctx.resume();
-                    this.isPlaying = true;
-                }
-                return this.isPlaying;
-            }
-
-            setVolume(channel, pct) {
-                if (!this.gains[channel] || !this.ctx) return;
-                const scale = channel === "lofi" ? 0.16 : 0.35;
-                this.gains[channel].gain.setTargetAtTime((pct / 100) * scale, this.ctx.currentTime, 0.1);
-            }
+    function handleIncomingData(data, senderConn = null) {
+      if (data.type === 'JOIN' && isHost) {
+        senderConn.peerMemberId = data.member.id;
+        roomMembers[data.member.id] = data.member;
+        updateAvatars();
+        broadcastHostSnapshot();
+        broadcastChat('System', `${data.member.name} entered the cafe! ☕`);
+      } 
+      else if (data.type === 'STATE_UPDATE' && isHost) {
+        roomMembers[data.member.id] = data.member;
+        updateAvatars();
+        broadcastHostSnapshot();
+      } 
+      else if (data.type === 'SNAPSHOT') {
+        roomMembers = data.members;
+        sharedTasks = data.tasks;
+        timerState = data.timer;
+        updateAvatars();
+        renderTasks();
+        updateTimerUI();
+      } 
+      else if (data.type === 'CHAT') {
+        appendChat(data.sender, data.text);
+        if (isHost) {
+          clientConns.forEach(c => { if (c !== senderConn && c.open) c.send(data); });
         }
+      } 
+      else if (data.type === 'TASKS_UPDATE') {
+        sharedTasks = data.tasks;
+        renderTasks();
+        if (isHost) broadcastHostSnapshot();
+      } 
+      else if (data.type === 'TIMER_UPDATE') {
+        timerState = data.timer;
+        updateTimerUI();
+        if (isHost) broadcastHostSnapshot();
+      }
+    }
 
-        const audioSynth = new CafeAudioSynth();
+    function broadcastHostSnapshot() {
+      if (!isHost) return;
+      const packet = {
+        type: 'SNAPSHOT',
+        members: roomMembers,
+        tasks: sharedTasks,
+        timer: timerState
+      };
+      clientConns.forEach(c => { if (c.open) c.send(packet); });
+    }
 
-        /**************************************************************
-         * 6. FIREBASE MULTIPLAYER & SHARED STUDY CAFE STATE
-         **************************************************************/
-        const appId = typeof __app_id !== "undefined" ? __app_id : "cozy-3d-study-cafe";
-        let db = null;
-        let auth = null;
-        let unsubscribers = [];
+    function broadcastState() {
+      roomMembers[myState.id] = myState;
+      if (isHost) {
+        broadcastHostSnapshot();
+      } else if (hostConn && hostConn.open) {
+        hostConn.send({ type: 'STATE_UPDATE', member: myState });
+      }
+    }
 
-        async function initFirebase() {
-            try {
-                if (typeof __firebase_config === "undefined" || !__firebase_config) {
-                    setupLocalDemoFallback();
-                    return;
-                }
-                const firebaseConfig = JSON.parse(__firebase_config);
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+    // ==========================================
+    // 4. CHAT, TASKS & POMODORO TIMER
+    // ==========================================
+    function appendChat(sender, text) {
+      const box = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.innerHTML = `<span class="font-bold text-amber-400">${sender}:</span> <span class="text-amber-50">${text}</span>`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
 
-                // RULE 3: Authenticate FIRST before any Firestore queries
-                if (typeof __initial_auth_token !== "undefined" && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+    function broadcastChat(sender, text) {
+      appendChat(sender, text);
+      const packet = { type: 'CHAT', sender, text };
+      if (isHost) {
+        clientConns.forEach(c => { if (c.open) c.send(packet); });
+      } else if (hostConn && hostConn.open) {
+        hostConn.send(packet);
+      }
+    }
 
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        state.user = user;
-                        state.userId = user.uid;
-                        subscribeToCafeRoom();
-                        publishMyPresence();
-                    }
-                });
-            } catch (err) {
-                console.warn("Using local cozy session mode:", err);
-                setupLocalDemoFallback();
-            }
-        }
+    function sendChat() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      broadcastChat(myState.name, text);
+    }
 
-        function setupLocalDemoFallback() {
-            // Populate self + friendly virtual study companions so the cafe feels alive immediately
-            state.participants.set(state.userId, { ...state.myProfile, room: state.roomCode, updatedAt: Date.now() });
-            state.participants.set("demo-friend-1", {
-                name: "Kenji",
-                task: "Calculus Problem Set",
-                zone: "library",
-                status: "Focusing",
-                color: "#10b981",
-                room: state.roomCode
-            });
-            state.participants.set("demo-friend-2", {
-                name: "claire_studies",
-                task: "UI Architecture Notes",
-                zone: "group",
-                status: "Focusing",
-                color: "#38bdf8",
-                room: state.roomCode
-            });
-            syncAvatarsIn3D();
-            renderTasksList();
-            renderChatMessages();
-        }
+    function renderTasks() {
+      const list = document.getElementById('task-list');
+      list.innerHTML = sharedTasks.map(t => `
+        <div onclick="toggleTask(${t.id})" class="flex items-center gap-2 p-1.5 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition">
+          <input type="checkbox" ${t.done ? 'checked' : ''} class="accent-amber-500 pointer-events-none">
+          <span class="${t.done ? 'line-through text-amber-200/40' : 'text-amber-50'}">${t.text}</span>
+        </div>
+      `).join('');
+    }
 
-        function subscribeToCafeRoom() {
-            if (!db || !state.user) return;
+    function addTask() {
+      const input = document.getElementById('task-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      sharedTasks.push({ id: Date.now(), text, done: false });
+      syncTasks();
+    }
 
-            // Clear old listeners
-            unsubscribers.forEach(unsub => unsub());
-            unsubscribers = [];
+    function toggleTask(id) {
+      sharedTasks = sharedTasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
+      syncTasks();
+    }
 
-            // 1. Presence Collection (RULE 1 & RULE 2 compliant)
-            const presenceCol = collection(db, "artifacts", appId, "public", "data", "cafe_presence");
-            const unsubPresence = onSnapshot(presenceCol, (snap) => {
-                state.participants.clear();
-                snap.forEach((docSnap) => {
-                    const data = docSnap.data();
-                    if (data.room === state.roomCode) {
-                        state.participants.set(docSnap.id, data);
-                    }
-                });
-                // Always ensure current user is visible
-                if (!state.participants.has(state.userId)) {
-                    state.participants.set(state.userId, { ...state.myProfile, room: state.roomCode });
-                }
-                syncAvatarsIn3D();
-            }, (err) => console.error("Presence sync error:", err));
+    function syncTasks() {
+      renderTasks();
+      if (isHost) broadcastHostSnapshot();
+      else if (hostConn && hostConn.open) hostConn.send({ type: 'TASKS_UPDATE', tasks: sharedTasks });
+    }
 
-            // 2. Shared Room Timer Document
-            const timerDocRef = doc(db, "artifacts", appId, "public", "data", "cafe_timers", state.roomCode);
-            const unsubTimer = onSnapshot(timerDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const d = docSnap.data();
-                    state.timer.mode = d.mode || "focus";
-                    state.timer.durationSec = d.durationSec || 1500;
-                    state.timer.isRunning = !!d.isRunning;
-                    state.timer.targetEndMs = d.targetEndMs || null;
-                    state.timer.remainingSec = d.remainingSec ?? state.timer.durationSec;
-                    updateTimerUI();
-                }
-            }, (err) => console.error("Timer sync error:", err));
+    // Pomodoro Timer
+    function updateTimerUI() {
+      const m = String(Math.floor(timerState.seconds / 60)).padStart(2, '0');
+      const s = String(timerState.seconds % 60).padStart(2, '0');
+      document.getElementById('timer-display').textContent = `${m}:${s}`;
+      document.getElementById('timer-mode-badge').textContent = timerState.label;
+    }
 
-            // 3. Shared Study Goals / Tasks Collection
-            const tasksCol = collection(db, "artifacts", appId, "public", "data", "cafe_tasks");
-            const unsubTasks = onSnapshot(tasksCol, (snap) => {
-                const list = [];
-                snap.forEach((d) => {
-                    const item = d.data();
-                    if (item.room === state.roomCode) {
-                        list.push({ id: d.id, ...item });
-                    }
-                });
-                list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                state.tasks = list;
-                renderTasksList();
-            }, (err) => console.error("Tasks sync error:", err));
+    function toggleTimer() {
+      timerState.running = !timerState.running;
+      syncTimer();
+    }
 
-            // 4. Shared Chat Collection
-            const chatCol = collection(db, "artifacts", appId, "public", "data", "cafe_chat");
-            const unsubChat = onSnapshot(chatCol, (snap) => {
-                const msgs = [];
-                snap.forEach((d) => {
-                    const m = d.data();
-                    if (m.room === state.roomCode) {
-                        msgs.push({ id: d.id, ...m });
-                    }
-                });
-                msgs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-                state.messages = msgs.slice(-50);
-                renderChatMessages();
-            }, (err) => console.error("Chat sync error:", err));
+    function resetTimer(mins, label) {
+      timerState = { seconds: mins * 60, running: false, label };
+      syncTimer();
+    }
 
-            unsubscribers.push(unsubPresence, unsubTimer, unsubTasks, unsubChat);
-        }
+    function syncTimer() {
+      updateTimerUI();
+      if (isHost) broadcastHostSnapshot();
+      else if (hostConn && hostConn.open) hostConn.send({ type: 'TIMER_UPDATE', timer: timerState });
+    }
 
-        async function publishMyPresence() {
-            state.participants.set(state.userId, {
-                ...state.myProfile,
-                room: state.roomCode,
-                updatedAt: Date.now()
-            });
-            syncAvatarsIn3D();
+    setInterval(() => {
+      if (timerState.running && timerState.seconds > 0) {
+        timerState.seconds--;
+        updateTimerUI();
+      }
+    }, 1000);
 
-            if (!db || !state.user) return;
-            try {
-                const ref = doc(db, "artifacts", appId, "public", "data", "cafe_presence", state.userId);
-                await setDoc(ref, {
-                    ...state.myProfile,
-                    room: state.roomCode,
-                    updatedAt: Date.now()
-                });
-            } catch (e) {
-                console.error("Failed to publish presence:", e);
-            }
-        }
+    // ==========================================
+    // 5. PROCEDURAL WEB AUDIO AMBIENCE
+    // ==========================================
+    let audioCtx = null;
+    const audioGains = {};
 
-        async function pushTimerStateToCloud() {
-            if (!db || !state.user) return;
-            try {
-                const ref = doc(db, "artifacts", appId, "public", "data", "cafe_timers", state.roomCode);
-                await setDoc(ref, {
-                    mode: state.timer.mode,
-                    durationSec: state.timer.durationSec,
-                    remainingSec: state.timer.remainingSec,
-                    isRunning: state.timer.isRunning,
-                    targetEndMs: state.timer.targetEndMs,
-                    updatedBy: state.myProfile.name,
-                    updatedAt: Date.now()
-                });
-            } catch (e) {
-                console.error("Timer update error:", e);
-            }
-        }
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-        /**************************************************************
-         * 7. UI EVENT HANDLERS (TIMER, SIDEBAR, PROFILE, CHAT)
-         **************************************************************/
-        function escapeHtml(str) {
-            return String(str).replace(/[&<>"']/g, s => ({
-                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-            }[s]));
-        }
+      // Rain / Fire noise generator
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
 
-        function updateMyProfileUI() {
-            const zName = ZONES[state.myProfile.zone]?.name || "Window Booth";
-            document.getElementById("my-name-display").textContent = state.myProfile.name;
-            document.getElementById("my-status-display").textContent = `${state.myProfile.status} • ${zName}`;
-            document.getElementById("my-avatar-dot").textContent = state.myProfile.name.charAt(0).toUpperCase();
-            document.getElementById("my-avatar-dot").style.backgroundColor = state.myProfile.color;
-            document.getElementById("footer-seat-name").textContent = zName;
-            document.getElementById("footer-task-name").textContent = state.myProfile.task;
-            document.getElementById("current-room-display").textContent = state.roomCode;
-        }
+      ['rain', 'fire'].forEach((type, idx) => {
+        const whiteNoise = audioCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
 
-        function renderFriendsSidebarList() {
-            const listEl = document.getElementById("friends-list");
-            document.getElementById("friends-count").textContent = state.participants.size;
-            listEl.innerHTML = "";
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = idx === 0 ? 850 : 350;
 
-            for (const [uid, p] of state.participants.entries()) {
-                const isMe = uid === state.userId;
-                const zName = ZONES[p.zone]?.name || "Window Booth";
-                const card = document.createElement("div");
-                card.className = "p-2.5 rounded-xl bg-black/30 hover:bg-black/45 border border-white/10 flex items-center justify-between cursor-pointer transition";
-                card.innerHTML = `
-                    <div class="flex items-center gap-2.5 min-w-0">
-                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-stone-950 font-bold text-xs shrink-0" style="background:${p.color || '#f59e0b'}">
-                            ${escapeHtml((p.name || 'S').charAt(0).toUpperCase())}
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-xs font-semibold text-amber-100 truncate">
-                                ${escapeHtml(p.name || 'Scholar')} ${isMe ? '<span class="text-[10px] text-amber-400">(You)</span>' : ''}
-                            </div>
-                            <div class="text-[11px] text-stone-400 truncate">🎯 ${escapeHtml(p.task || 'Studying')}</div>
-                            <div class="text-[10px] text-amber-300/80">📍 ${escapeHtml(zName)}</div>
-                        </div>
-                    </div>
-                    <span class="text-[10px] px-2 py-0.5 rounded-full shrink-0 ${p.status === 'On Break' ? 'bg-sky-500/20 text-sky-300' : 'bg-emerald-500/20 text-emerald-300'}">
-                        ${escapeHtml(p.status || 'Focusing')}
-                    </span>
-                `;
-                card.addEventListener("click", () => {
-                    if (p.zone && ZONES[p.zone]) {
-                        moveCameraToZone(p.zone);
-                        showToast("📍", `Moved camera to ${p.name}'s study zone (${zName})`);
-                    }
-                });
-                listEl.appendChild(card);
-            }
-        }
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0;
 
-        function renderTasksList() {
-            const container = document.getElementById("tasks-list");
-            if (state.tasks.length === 0) {
-                container.innerHTML = `<div class="text-center text-xs text-stone-500 py-6">No study goals posted yet. Add your first goal above!</div>`;
-                return;
-            }
-            container.innerHTML = "";
-            state.tasks.forEach((task) => {
-                const item = document.createElement("div");
-                item.className = "p-2.5 rounded-xl bg-black/30 border border-white/10 flex items-start justify-between gap-2 text-xs";
-                item.innerHTML = `
-                    <label class="flex items-start gap-2 cursor-pointer flex-1">
-                        <input type="checkbox" ${task.done ? 'checked' : ''} class="mt-0.5 accent-amber-500 rounded cursor-pointer">
-                        <div>
-                            <div class="${task.done ? 'line-through text-stone-500' : 'text-stone-200'} font-medium">${escapeHtml(task.text)}</div>
-                            <div class="text-[10px] text-amber-400/80 mt-0.5">by ${escapeHtml(task.author || 'Scholar')}</div>
-                        </div>
-                    </label>
-                    <button class="text-stone-500 hover:text-rose-400 text-xs px-1" title="Remove">✕</button>
-                `;
-                const checkbox = item.querySelector("input");
-                checkbox.addEventListener("change", async () => {
-                    task.done = checkbox.checked;
-                    renderTasksList();
-                    if (db && state.user && task.id && !task.id.startsWith("local-")) {
-                        await updateDoc(doc(db, "artifacts", appId, "public", "data", "cafe_tasks", task.id), { done: task.done });
-                    }
-                });
-                const delBtn = item.querySelector("button");
-                delBtn.addEventListener("click", async () => {
-                    state.tasks = state.tasks.filter(t => t.id !== task.id);
-                    renderTasksList();
-                    if (db && state.user && task.id && !task.id.startsWith("local-")) {
-                        await deleteDoc(doc(db, "artifacts", appId, "public", "data", "cafe_tasks", task.id));
-                    }
-                });
-                container.appendChild(item);
-            });
-        }
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        whiteNoise.start();
+        audioGains[type] = gain;
+      });
 
-        function renderChatMessages() {
-            const box = document.getElementById("chat-messages");
-            if (state.messages.length === 0) {
-                box.innerHTML = `<div class="text-center text-xs text-stone-500 py-6">Say hello or send a virtual coffee to your study group! ☕</div>`;
-                return;
-            }
-            box.innerHTML = "";
-            state.messages.forEach((m) => {
-                const div = document.createElement("div");
-                div.className = "p-2 rounded-xl bg-black/30 border border-white/5 text-xs";
-                div.innerHTML = `
-                    <div class="flex items-center justify-between text-[10px] text-amber-300 font-semibold mb-0.5">
-                        <span>${escapeHtml(m.author || 'Scholar')}</span>
-                    </div>
-                    <div class="text-stone-200 break-words">${escapeHtml(m.text)}</div>
-                `;
-                box.appendChild(div);
-            });
-            box.scrollTop = box.scrollHeight;
-        }
+      // Warm Lo-fi Chord Pad
+      const osc = audioCtx.createOscillator();
+      const lofiGain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 220;
+      lofiGain.gain.value = 0;
+      osc.connect(lofiGain);
+      lofiGain.connect(audioCtx.destination);
+      osc.start();
+      audioGains['lofi'] = lofiGain;
+    }
 
-        async function sendChatMessage(text) {
-            if (!text.trim()) return;
-            const msgObj = {
-                id: "local-" + Date.now(),
-                room: state.roomCode,
-                author: state.myProfile.name,
-                text: text.trim(),
-                createdAt: Date.now()
-            };
-            state.messages.push(msgObj);
-            renderChatMessages();
+    function setAudioVolume(type, val) {
+      initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioGains[type]) audioGains[type].gain.setTargetAtTime(parseFloat(val) * 0.25, audioCtx.currentTime, 0.1);
+    }
 
-            if (db && state.user) {
-                try {
-                    await addDoc(collection(db, "artifacts", appId, "public", "data", "cafe_chat"), {
-                        room: state.roomCode,
-                        author: state.myProfile.name,
-                        text: text.trim(),
-                        createdAt: Date.now()
-                    });
-                } catch (e) {
-                    console.error("Chat send error:", e);
-                }
-            }
-        }
+    // ==========================================
+    // 6. ANIMATION LOOP & RESIZE
+    // ==========================================
+    function animate() {
+      requestAnimationFrame(animate);
 
-        // Shared Pomodoro Timer Logic
-        function formatTime(sec) {
-            const s = Math.max(0, Math.floor(sec));
-            const m = Math.floor(s / 60);
-            const rem = s % 60;
-            return `${String(m).padStart(2, "0")}:${String(rem).padStart(2, "0")}`;
-        }
+      // Animate Raindrops
+      const pos = rainGeo.attributes.position.array;
+      for (let i = 0; i < rainCount; i++) {
+        pos[i * 3 + 1] -= 0.12;
+        if (pos[i * 3 + 1] < 0) pos[i * 3 + 1] = 8;
+      }
+      rainGeo.attributes.position.needsUpdate = true;
 
-        function updateTimerUI() {
-            document.getElementById("timer-display").textContent = formatTime(state.timer.remainingSec);
-            const btnLabel = document.getElementById("timer-btn-label");
-            btnLabel.textContent = state.timer.isRunning ? "Pause" : "Start";
+      // Smooth Camera Zone Glide
+      if (isTransitioning) {
+        camera.position.lerp(targetCamPos, 0.06);
+        controls.target.lerp(targetLookAt, 0.06);
+        if (camera.position.distanceTo(targetCamPos) < 0.08) isTransitioning = false;
+      }
 
-            const badge = document.getElementById("timer-sync-badge");
-            if (state.timer.mode === "focus") {
-                badge.textContent = "🔥 Focus Session";
-            } else if (state.timer.mode === "short") {
-                badge.textContent = "☕ Short Break";
-            } else {
-                badge.textContent = "🌿 Long Break";
-            }
-        }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
 
-        setInterval(() => {
-            if (state.timer.isRunning && state.timer.targetEndMs) {
-                const left = Math.max(0, Math.ceil((state.timer.targetEndMs - Date.now()) / 1000));
-                state.timer.remainingSec = left;
-                updateTimerUI();
-                if (left <= 0) {
-                    state.timer.isRunning = false;
-                    state.timer.targetEndMs = null;
-                    showToast("🔔", "Timer complete! Great job staying focused.");
-                    updateTimerUI();
-                }
-            }
-        }, 500);
-
-        // Bind Timer Buttons
-        document.getElementById("timer-start-btn").addEventListener("click", () => {
-            if (state.timer.isRunning) {
-                state.timer.isRunning = false;
-                state.timer.targetEndMs = null;
-            } else {
-                state.timer.isRunning = true;
-                state.timer.targetEndMs = Date.now() + state.timer.remainingSec * 1000;
-            }
-            updateTimerUI();
-            pushTimerStateToCloud();
-        });
-
-        document.getElementById("timer-reset-btn").addEventListener("click", () => {
-            state.timer.isRunning = false;
-            state.timer.targetEndMs = null;
-            state.timer.remainingSec = state.timer.durationSec;
-            updateTimerUI();
-            pushTimerStateToCloud();
-        });
-
-        document.querySelectorAll(".timer-mode-btn").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                const mode = btn.dataset.mode;
-                const mins = parseInt(btn.dataset.min, 10);
-                state.timer.mode = mode;
-                state.timer.durationSec = mins * 60;
-                state.timer.remainingSec = mins * 60;
-                state.timer.isRunning = false;
-                state.timer.targetEndMs = null;
-
-                document.querySelectorAll(".timer-mode-btn").forEach(b => {
-                    b.className = "timer-mode-btn py-1 rounded-lg text-stone-300 hover:text-white transition";
-                });
-                btn.className = "timer-mode-btn py-1 rounded-lg bg-amber-500 text-stone-950 font-semibold transition";
-
-                // Update user status automatically based on mode
-                state.myProfile.status = mode === "focus" ? "Focusing" : "On Break";
-                updateMyProfileUI();
-                publishMyPresence();
-                updateTimerUI();
-                pushTimerStateToCloud();
-            });
-        });
-
-        document.getElementById("custom-min-btn").addEventListener("click", () => {
-            document.getElementById("custom-timer-drawer").classList.toggle("hidden");
-        });
-
-        document.getElementById("apply-custom-min").addEventListener("click", () => {
-            const val = Math.max(1, Math.min(180, parseInt(document.getElementById("custom-min-input").value, 10) || 25));
-            state.timer.durationSec = val * 60;
-            state.timer.remainingSec = val * 60;
-            state.timer.isRunning = false;
-            state.timer.targetEndMs = null;
-            document.getElementById("custom-timer-drawer").classList.add("hidden");
-            updateTimerUI();
-            pushTimerStateToCloud();
-        });
-
-        // Bind Zone Camera Buttons
-        document.querySelectorAll(".zone-btn").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                moveCameraToZone(btn.dataset.zone);
-            });
-        });
-
-        // Bind Audio Sliders
-        document.getElementById("master-audio-btn").addEventListener("click", (e) => {
-            const active = audioSynth.toggle();
-            e.currentTarget.textContent = active ? "🔊 Soundscape Playing" : "🔇 Muted (Click to Play)";
-            e.currentTarget.className = active
-                ? "text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/25 text-emerald-200 border border-emerald-400/40 transition"
-                : "text-[11px] px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-400/30 transition";
-        });
-
-        ["rain", "fire", "cafe", "lofi"].forEach((ch) => {
-            const slider = document.getElementById(`slider-${ch}`);
-            const label = document.getElementById(`val-${ch}`);
-            slider.addEventListener("input", () => {
-                label.textContent = `${slider.value}%`;
-                audioSynth.setVolume(ch, parseInt(slider.value, 10));
-            });
-        });
-
-        // Bind Right Sidebar Tabs
-        document.querySelectorAll(".sidebar-tab").forEach((tabBtn) => {
-            tabBtn.addEventListener("click", () => {
-                const target = tabBtn.dataset.tab;
-                document.querySelectorAll(".sidebar-tab").forEach(b => {
-                    b.className = "sidebar-tab py-2.5 text-stone-400 hover:text-stone-200 transition";
-                });
-                tabBtn.className = "sidebar-tab py-2.5 text-amber-300 border-b-2 border-amber-400 bg-white/5 transition";
-
-                document.querySelectorAll(".tab-content").forEach(c => c.classList.add("hidden"));
-                document.getElementById(`tab-${target}`).classList.remove("hidden");
-            });
-        });
-
-        // Toggle Focus/Break button
-        document.getElementById("toggle-status-btn").addEventListener("click", () => {
-            state.myProfile.status = state.myProfile.status === "Focusing" ? "On Break" : "Focusing";
-            updateMyProfileUI();
-            publishMyPresence();
-            showToast("✨", `Status changed to ${state.myProfile.status}`);
-        });
-
-        // Task Form
-        document.getElementById("task-form").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const input = document.getElementById("task-input");
-            const text = input.value.trim();
-            if (!text) return;
-            input.value = "";
-
-            const newTask = {
-                id: "local-" + Date.now(),
-                room: state.roomCode,
-                text,
-                author: state.myProfile.name,
-                done: false,
-                createdAt: Date.now()
-            };
-            state.tasks.unshift(newTask);
-            renderTasksList();
-
-            if (db && state.user) {
-                try {
-                    await addDoc(collection(db, "artifacts", appId, "public", "data", "cafe_tasks"), {
-                        room: state.roomCode,
-                        text,
-                        author: state.myProfile.name,
-                        done: false,
-                        createdAt: Date.now()
-                    });
-                } catch (err) {
-                    console.error("Add task error:", err);
-                }
-            }
-        });
-
-        // Chat Form & Quick Cheers
-        document.getElementById("chat-form").addEventListener("submit", (e) => {
-            e.preventDefault();
-            const input = document.getElementById("chat-input");
-            sendChatMessage(input.value);
-            input.value = "";
-        });
-
-        document.querySelectorAll(".cheer-btn").forEach((btn) => {
-            btn.addEventListener("click", () => {
-                sendChatMessage(btn.dataset.cheer);
-                showToast("☕", "Sent encouragement to the study room!");
-            });
-        });
-
-        // Profile & Room Switch Modal
-        const profileModal = document.getElementById("profile-modal");
-        function openProfileModal() {
-            document.getElementById("modal-name-input").value = state.myProfile.name;
-            document.getElementById("modal-task-input").value = state.myProfile.task;
-            document.getElementById("modal-zone-select").value = state.myProfile.zone;
-            document.getElementById("modal-color-select").value = state.myProfile.color;
-            document.getElementById("modal-room-input").value = state.roomCode;
-            profileModal.classList.remove("hidden");
-        }
-
-        document.getElementById("edit-profile-btn").addEventListener("click", openProfileModal);
-        document.getElementById("change-room-btn").addEventListener("click", openProfileModal);
-        document.getElementById("modal-cancel-btn").addEventListener("click", () => {
-            profileModal.classList.add("hidden");
-        });
-
-        document.getElementById("modal-save-btn").addEventListener("click", () => {
-            const newName = document.getElementById("modal-name-input").value.trim() || "Scholar";
-            const newTask = document.getElementById("modal-task-input").value.trim() || "Deep Focus Session";
-            const newZone = document.getElementById("modal-zone-select").value;
-            const newColor = document.getElementById("modal-color-select").value;
-            const newRoom = (document.getElementById("modal-room-input").value.trim() || "COZY-MAIN").toUpperCase();
-
-            const roomChanged = newRoom !== state.roomCode;
-            state.myProfile.name = newName;
-            state.myProfile.task = newTask;
-            state.myProfile.zone = newZone;
-            state.myProfile.color = newColor;
-            state.roomCode = newRoom;
-
-            profileModal.classList.add("hidden");
-            updateMyProfileUI();
-            moveCameraToZone(newZone);
-
-            if (roomChanged && db && state.user) {
-                subscribeToCafeRoom();
-            }
-            publishMyPresence();
-            showToast("🪑", `Seated at ${ZONES[newZone].name} in room ${state.roomCode}`);
-        });
-
-        // Copy Room Code
-        document.getElementById("copy-room-btn").addEventListener("click", () => {
-            const temp = document.createElement("textarea");
-            temp.value = state.roomCode;
-            document.body.appendChild(temp);
-            temp.select();
-            document.execCommand("copy");
-            temp.remove();
-            showToast("📋", `Copied room code "${state.roomCode}" — share with friends!`);
-        });
-
-        // Hide/Show UI Panels for Immersive View
-        document.getElementById("toggle-ui-btn").addEventListener("click", (e) => {
-            state.uiHidden = !state.uiHidden;
-            const sidebars = document.querySelectorAll("aside");
-            sidebars.forEach(s => {
-                s.style.opacity = state.uiHidden ? "0" : "1";
-                s.style.pointerEvents = state.uiHidden ? "none" : "";
-            });
-            e.currentTarget.textContent = state.uiHidden ? "👁️ Show Panels" : "👁️ Hide Panels";
-        });
-
-        /**************************************************************
-         * 8. MAIN ANIMATION LOOP & RESIZE HANDLER
-         **************************************************************/
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const elapsed = clock.getElapsedTime();
-
-            // Smooth camera interpolation
-            camera.position.lerp(desiredCamPos, 0.06);
-            camTarget.lerp(desiredLookAt, 0.07);
-            camera.lookAt(camTarget);
-
-            // Animate Raindrops outside window
-            if (rainSystem) {
-                const posArr = rainSystem.geometry.attributes.position.array;
-                for (let i = 0; i < posArr.length; i += 3) {
-                    posArr[i + 1] -= 0.16;
-                    if (posArr[i + 1] < 0) posArr[i + 1] = 7.8;
-                }
-                rainSystem.geometry.attributes.position.needsUpdate = true;
-            }
-
-            // Animate Coffee Steam Puffs
-            steamGroups.forEach((sg, idx) => {
-                if (!sg.steamActive) return;
-                sg.puffs.forEach((puff, pIdx) => {
-                    puff.position.y += 0.0035;
-                    puff.position.x = Math.sin(elapsed * 2 + idx + pIdx) * 0.03;
-                    if (puff.position.y > 0.65) {
-                        puff.position.y = 0.25;
-                    }
-                });
-            });
-
-            // Subtle breathing animation for 3D avatars
-            for (const [, entry] of avatarMeshes.entries()) {
-                entry.group.children[1].position.y = 1.22 + Math.sin(elapsed * 2.2) * 0.015;
-            }
-
-            renderer.render(scene, camera);
-            updateFloatingLabelPositions();
-        }
-
-        window.addEventListener("resize", () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        window.onload = function () {
-            updateMyProfileUI();
-            updateTimerUI();
-            initFirebase();
-            animate();
-        };
-    </script>
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
